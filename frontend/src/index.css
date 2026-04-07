@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    @apply bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950;
+    color: #ffffff;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+
+  body.light-theme {
+    background: radial-gradient(circle at top, #f8fbff, #dbeafe 30%, #e0f2fe 100%);
+    color: #0f172a;
+  }
+
+  body.dark-theme {
+    background: radial-gradient(circle at top, #0f172a, #0a0e27 40%, #050814 100%);
+    color: #ffffff;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 255, 0.5);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 255, 0.7);
+}
+
+/* Smooth animations */
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(168, 85, 247, 0.5);
+  }
+}
+
+.animate-glow {
+  animation: glow 3s ease-in-out infinite;
+}

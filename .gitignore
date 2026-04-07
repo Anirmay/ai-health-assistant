@@ -1,0 +1,48 @@
+# Frontend
+frontend/node_modules/
+frontend/.env.local
+frontend/.env.*.local
+frontend/dist/
+frontend/.vite/
+
+# Backend
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/.Python
+backend/env/
+backend/build/
+backend/develop-eggs/
+backend/.egg-info/
+backend/dist/
+backend/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Models
+backend/ml_models/trained_models/*.pkl
+backend/ml_models/trained_models/*.h5
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temp files
+*.tmp
+.cache/
