@@ -17,7 +17,6 @@ const translations = {
     symptom: { title: 'Symptom Analyzer', subtitle: 'AI-powered disease prediction from your symptoms', desc: 'Describe your symptoms:', ph: 'e.g., I have fever, cough, headache, and fatigue...', common: 'Or select common symptoms:', analyze: 'Analyze Symptoms', analyzing: 'Analyzing...', clear: 'Clear' },
     medicine: { title: 'Medicine Authenticator', subtitle: 'AI-powered medicine verification system - Detect counterfeit medicines instantly', upload: 'Upload Medicine Image', format: 'PNG, JPG or WebP (Max 5MB)', drag: 'or drag and drop', verify: 'Verify Authenticity', verifying: 'Verifying...', clear: 'Clear' },
     chat: { title: 'AI Health Chat', ph: 'Type your health question...', btn: 'Send' },
-    history: { title: 'Health History', symp_tab: 'Symptoms', med_tab: 'Medicine', loading: 'Loading history...', empty: 'No history yet. Start by analyzing your health!', back: 'Back to History' }
   },
   hi: {
     nav: { home: 'होम', symptom: 'लक्षण', medicine: 'दवा', chat: 'चैट', history: 'इतिहास' },
@@ -27,7 +26,8 @@ const translations = {
     symptom: { title: 'लक्षण विश्लेषक', subtitle: 'आपके लक्षणों से एआई-संचालित रोग भविष्यवाणी', desc: 'अपने लक्षणों का वर्णन करें:', ph: 'उदा., मुझे बुखार, खांसी, सिरदर्द है...', common: 'या सामान्य लक्षणों का चयन करें:', analyze: 'लक्षणों का विश्लेषण करें', analyzing: 'विश्लेषण कर रहा है...', clear: 'साफ़ करें' },
     medicine: { title: 'दवा प्रमाणक', subtitle: 'एआई-संचालित दवा सत्यापन प्रणाली', upload: 'दवा की छवि अपलोड करें', format: 'PNG, JPG या WebP (अधिकतम 5MB)', drag: 'या खींचें और छोड़ें', verify: 'प्रामाणिकता सत्यापित करें', verifying: 'सत्यापित कर रहा है...', clear: 'साफ़ करें' },
     chat: { title: 'एआई स्वास्थ्य चैट', ph: 'अपना स्वास्थ्य प्रश्न टाइप करें...', btn: 'भेजें' },
-    history: { title: 'स्वास्थ्य इतिहास', symp_tab: 'लक्षण', med_tab: 'दवा', loading: 'इतिहास लोड हो रहा है...', empty: 'अभी तक कोई इतिहास नहीं है। अपने स्वास्थ्य का विश्लेषण करके शुरू करें!', back: 'इतिहास पर वापस जाएं' }
+    history: { title: 'स्वास्थ्य इतिहास', symp_tab: 'लक्षण', med_tab: 'दवा', loading: 'इतिहास लोड हो रहा है...', empty: 'अभी तक कोई इतिहास नहीं है। अपने स्वास्थ्य का विश्लेषण करके शुरू करें!', back: 'इतिहास पर वापस जाएं' },
+    login: { title: 'वापसी पर स्वागत है', subtitle: 'अपने स्वास्थ्य इतिहास और अधिक तक पहुंचने के लिए लॉगिन करें।', email: 'ईमेल पता', email_ph: 'you@example.com', password: 'पासवर्ड', forgot: 'पासवर्ड भूल गए?', login_btn: 'लॉगिन करें', no_account: 'खाता नहीं है?', signup: 'साइन अप करें' }
   },
   bn: {
     nav: { home: 'হোম', symptom: 'লক্ষণ', medicine: 'ওষুধ', chat: 'চ্যাট', history: 'ইতিহাস' },
@@ -37,7 +37,8 @@ const translations = {
     symptom: { title: 'লক্ষণ বিশ্লেষক', subtitle: 'আপনার লক্ষণ থেকে এআই-চালিত রোগ পূর্বাভাস', desc: 'আপনার লক্ষণ বর্ণনা করুন:', ph: 'যেমন, আমার জ্বর, কাশি, মাথাব্যথা আছে...', common: 'বা সাধারণ লক্ষণ নির্বাচন করুন:', analyze: 'লক্ষণ বিশ্লেষণ করুন', analyzing: 'বিশ্লেষণ করা হচ্ছে...', clear: 'পরিষ্কার করুন' },
     medicine: { title: 'ওষুধ যাচাইকারী', subtitle: 'এআই-চালিত ওষুধ যাচাইকরণ সিস্টেম', upload: 'ওষুধের ছবি আপলোড করুন', format: 'PNG, JPG বা WebP (সর্বোচ্চ 5MB)', drag: 'বা টেনে আনুন এবং ছেড়ে দিন', verify: 'সত্যতা যাচাই করুন', verifying: 'যাচাই করা হচ্ছে...', clear: 'পরিষ্কার করুন' },
     chat: { title: 'এআই স্বাস্থ্য চ্যাট', ph: 'আপনার স্বাস্থ্য প্রশ্ন টাইপ করুন...', btn: 'পাঠান' },
-    history: { title: 'স্বাস্থ্য ইতিহাস', symp_tab: 'লক্ষণ', med_tab: 'ওষুধ', loading: 'ইতিহাস লোড হচ্ছে...', empty: 'এখনও কোন ইতিহাস নেই। আপনার স্বাস্থ্য বিশ্লেষণ করে শুরু করুন!', back: 'ইতিহাসে ফিরে যান' }
+    history: { title: 'স্বাস্থ্য ইতিহাস', symp_tab: 'লক্ষণ', med_tab: 'ওষুধ', loading: 'ইতিহাস লোড হচ্ছে...', empty: 'এখনও কোন ইতিহাস নেই। আপনার স্বাস্থ্য বিশ্লেষণ করে শুরু করুন!', back: 'ইতিহাসে ফিরে যান' },
+    login: { title: 'স্বাগতম', subtitle: 'আপনার স্বাস্থ্য ইতিহাস এবং আরও অনেক কিছু অ্যাক্সেস করতে লগইন করুন।', email: 'ইমেল ঠিকানা', email_ph: 'you@example.com', password: 'পাসওয়ার্ড', forgot: 'পাসওয়ার্ড ভুলে গেছেন?', login_btn: 'লগইন করুন', no_account: 'অ্যাকাউন্ট নেই?', signup: 'সাইন আপ করুন' }
   }
 };
 
@@ -83,7 +84,7 @@ export default function App() {
   // Sync URL with page state
   useEffect(() => {
     const path = window.location.pathname.slice(1) || 'home';
-    const page = ['home', 'symptom', 'medicine', 'chat', 'history'].includes(path) ? path : 'home';
+    const page = ['home', 'symptom', 'medicine', 'chat', 'history', 'login'].includes(path) ? path : 'home';
     setCurrentPage(page);
   }, []);
 
@@ -174,7 +175,7 @@ export default function App() {
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 glass border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3 group cursor-pointer">
+          <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setCurrentPage('home')}>
             <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/50 group-hover:shadow-cyan-500/80 transition-all">
               <span className="text-xl font-bold">🔬</span>
             </div>
@@ -226,18 +227,19 @@ export default function App() {
 
       {/* Main Content */}
       <main className="relative z-10 pt-24">
-        {currentPage === 'home' && <HomePage />}
+        {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'symptom' && <SymptomPage />}
         {currentPage === 'medicine' && <MedicinePage />}
         {currentPage === 'chat' && <ChatPage />}
         {currentPage === 'history' && <HistoryPage />}
+        {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} />}
       </main>
     </div>
     </LanguageContext.Provider>
   );
 }
 
-function HomePage() {
+function HomePage({ setCurrentPage }) {
   const { t } = useContext(LanguageContext);
   const heroRef = useRef(null);
   const cardsRef = useRef([]);
@@ -382,7 +384,7 @@ function HomePage() {
             {t('hero', 'desc')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <button className="magnetic-btn relative group px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl font-bold text-white shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/80 transition-all overflow-hidden">
+            <button onClick={() => setCurrentPage('login')} className="magnetic-btn relative group px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl font-bold text-white shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/80 transition-all overflow-hidden">
               <span className="relative z-10 flex items-center gap-2">
                 {t('hero', 'start')}
                 <span className="group-hover:translate-x-2 transition-transform">→</span>
@@ -440,6 +442,70 @@ function HomePage() {
             <p className="text-gray-400 mt-3">{stat.label}</p>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function LoginPage({ setCurrentPage }) {
+  const { t } = useContext(LanguageContext);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    gsap.fromTo(containerRef.current,
+      { opacity: 0, y: 50, scale: 0.95 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: 'power3.out' }
+    );
+  }, []);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    // Here you would add actual login logic with API calls
+    // For now, let's just navigate back to the home page after "login"
+    setCurrentPage('home');
+  };
+
+  return (
+    <div ref={containerRef} className="min-h-screen max-w-md mx-auto px-6 py-20">
+      <div className="glass p-12 rounded-2xl space-y-8 border border-white/10 text-center">
+        <h2 className="text-4xl font-black gradient-text">{t('login', 'title')}</h2>
+        <p className="text-gray-400">{t('login', 'subtitle')}</p>
+        
+        <form onSubmit={handleLogin} className="space-y-6 text-left">
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">{t('login', 'email')}</label>
+            <input 
+              type="email"
+              placeholder={t('login', 'email_ph')}
+              required
+              className="w-full glass rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">{t('login', 'password')}</label>
+            <input 
+              type="password"
+              placeholder="••••••••"
+              required
+              className="w-full glass rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+            />
+          </div>
+          <div className="text-right">
+            <a href="#" onClick={(e) => e.preventDefault()} className="text-sm text-cyan-400 hover:underline">{t('login', 'forgot')}</a>
+          </div>
+          
+          <button
+            type="submit"
+            className="w-full px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl font-bold text-white shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/80 transition-all hover:scale-105 active:scale-95"
+          >
+            {t('login', 'login_btn')}
+          </button>
+        </form>
+
+        <p className="text-sm text-gray-400">
+          {t('login', 'no_account')}{' '}
+          <button onClick={() => {/* TODO: navigate to signup page */}} className="font-bold text-cyan-400 hover:underline">{t('login', 'signup')}</button>
+        </p>
       </div>
     </div>
   );
