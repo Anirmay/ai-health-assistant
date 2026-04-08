@@ -1,14 +1,78 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import AnimatedGradientBackground from './components/AnimatedGradientBackground';
 
 gsap.registerPlugin(ScrollTrigger);
 
+// Global Language Context and Dictionary
+export const LanguageContext = createContext();
+
+const translations = {
+  en: {
+    nav: { home: 'Home', symptom: 'Symptom', medicine: 'Medicine', chat: 'Chat', history: 'History' },
+    hero: { your: 'Your', ai: 'AI', health: 'Health', companion: 'Companion', desc: 'Advanced AI-powered health analysis, medicine verification, and 24/7 health support. All in one intelligent platform.', start: 'Start Now', learn: 'Learn More' },
+    features: { diag_title: 'Smart Diagnosis', diag_desc: 'AI-powered symptom analysis', med_title: 'Medicine Check', med_desc: 'Verify authenticity instantly', ai_title: 'AI Assistant', ai_desc: '24/7 health guidance' },
+    stats: { users: 'Active Users', acc: 'Accuracy Rate', time: 'Response Time', countries: 'Countries' },
+    symptom: { title: 'Symptom Analyzer', subtitle: 'AI-powered disease prediction from your symptoms', desc: 'Describe your symptoms:', ph: 'e.g., I have fever, cough, headache, and fatigue...', common: 'Or select common symptoms:', analyze: 'Analyze Symptoms', analyzing: 'Analyzing...', clear: 'Clear' },
+    medicine: { title: 'Medicine Authenticator', subtitle: 'AI-powered medicine verification system - Detect counterfeit medicines instantly', upload: 'Upload Medicine Image', format: 'PNG, JPG or WebP (Max 5MB)', drag: 'or drag and drop', verify: 'Verify Authenticity', verifying: 'Verifying...', clear: 'Clear' },
+    chat: { title: 'AI Health Chat', ph: 'Type your health question...', btn: 'Send' },
+    history: { title: 'Health History', symp_tab: 'Symptoms', med_tab: 'Medicine', loading: 'Loading history...', empty: 'No history yet. Start by analyzing your health!', back: 'Back to History' }
+  },
+  hi: {
+    nav: { home: 'होम', symptom: 'लक्षण', medicine: 'दवा', chat: 'चैट', history: 'इतिहास' },
+    hero: { your: 'आपका', ai: 'AI', health: 'स्वास्थ्य', companion: 'साथी', desc: 'उन्नत एआई-संचालित स्वास्थ्य विश्लेषण, दवा सत्यापन, और 24/7 स्वास्थ्य सहायता। सब कुछ एक बुद्धिमान मंच में।', start: 'अभी शुरू करें', learn: 'और जानें' },
+    features: { diag_title: 'स्मार्ट निदान', diag_desc: 'एआई-संचालित लक्षण विश्लेषण', med_title: 'दवा की जाँच', med_desc: 'तुरंत प्रामाणिकता सत्यापित करें', ai_title: 'एआई सहायक', ai_desc: '24/7 स्वास्थ्य मार्गदर्शन' },
+    stats: { users: 'सक्रिय उपयोगकर्ता', acc: 'सटीकता दर', time: 'प्रतिक्रिया समय', countries: 'देश' },
+    symptom: { title: 'लक्षण विश्लेषक', subtitle: 'आपके लक्षणों से एआई-संचालित रोग भविष्यवाणी', desc: 'अपने लक्षणों का वर्णन करें:', ph: 'उदा., मुझे बुखार, खांसी, सिरदर्द है...', common: 'या सामान्य लक्षणों का चयन करें:', analyze: 'लक्षणों का विश्लेषण करें', analyzing: 'विश्लेषण कर रहा है...', clear: 'साफ़ करें' },
+    medicine: { title: 'दवा प्रमाणक', subtitle: 'एआई-संचालित दवा सत्यापन प्रणाली', upload: 'दवा की छवि अपलोड करें', format: 'PNG, JPG या WebP (अधिकतम 5MB)', drag: 'या खींचें और छोड़ें', verify: 'प्रामाणिकता सत्यापित करें', verifying: 'सत्यापित कर रहा है...', clear: 'साफ़ करें' },
+    chat: { title: 'एआई स्वास्थ्य चैट', ph: 'अपना स्वास्थ्य प्रश्न टाइप करें...', btn: 'भेजें' },
+    history: { title: 'स्वास्थ्य इतिहास', symp_tab: 'लक्षण', med_tab: 'दवा', loading: 'इतिहास लोड हो रहा है...', empty: 'अभी तक कोई इतिहास नहीं है। अपने स्वास्थ्य का विश्लेषण करके शुरू करें!', back: 'इतिहास पर वापस जाएं' }
+  },
+  bn: {
+    nav: { home: 'হোম', symptom: 'লক্ষণ', medicine: 'ওষুধ', chat: 'চ্যাট', history: 'ইতিহাস' },
+    hero: { your: 'আপনার', ai: 'AI', health: 'স্বাস্থ্য', companion: 'সঙ্গী', desc: 'উন্নত এআই-চালিত স্বাস্থ্য বিশ্লেষণ, ওষুধ যাচাইকরণ এবং 24/7 স্বাস্থ্য সহায়তা। সবকিছু একটি বুদ্ধিমান প্ল্যাটফর্মে।', start: 'এখন শুরু করুন', learn: 'আরও জানুন' },
+    features: { diag_title: 'স্মার্ট রোগ নির্ণয়', diag_desc: 'এআই-চালিত লক্ষণ বিশ্লেষণ', med_title: 'ওষুধ চেক', med_desc: 'অবিলম্বে সত্যতা যাচাই করুন', ai_title: 'এআই সহকারী', ai_desc: '24/7 স্বাস্থ্য নির্দেশিকা' },
+    stats: { users: 'সক্রিয় ব্যবহারকারী', acc: 'সঠিকতা হার', time: 'প্রতিক্রিয়া সময়', countries: 'দেশ' },
+    symptom: { title: 'লক্ষণ বিশ্লেষক', subtitle: 'আপনার লক্ষণ থেকে এআই-চালিত রোগ পূর্বাভাস', desc: 'আপনার লক্ষণ বর্ণনা করুন:', ph: 'যেমন, আমার জ্বর, কাশি, মাথাব্যথা আছে...', common: 'বা সাধারণ লক্ষণ নির্বাচন করুন:', analyze: 'লক্ষণ বিশ্লেষণ করুন', analyzing: 'বিশ্লেষণ করা হচ্ছে...', clear: 'পরিষ্কার করুন' },
+    medicine: { title: 'ওষুধ যাচাইকারী', subtitle: 'এআই-চালিত ওষুধ যাচাইকরণ সিস্টেম', upload: 'ওষুধের ছবি আপলোড করুন', format: 'PNG, JPG বা WebP (সর্বোচ্চ 5MB)', drag: 'বা টেনে আনুন এবং ছেড়ে দিন', verify: 'সত্যতা যাচাই করুন', verifying: 'যাচাই করা হচ্ছে...', clear: 'পরিষ্কার করুন' },
+    chat: { title: 'এআই স্বাস্থ্য চ্যাট', ph: 'আপনার স্বাস্থ্য প্রশ্ন টাইপ করুন...', btn: 'পাঠান' },
+    history: { title: 'স্বাস্থ্য ইতিহাস', symp_tab: 'লক্ষণ', med_tab: 'ওষুধ', loading: 'ইতিহাস লোড হচ্ছে...', empty: 'এখনও কোন ইতিহাস নেই। আপনার স্বাস্থ্য বিশ্লেষণ করে শুরু করুন!', back: 'ইতিহাসে ফিরে যান' }
+  }
+};
+
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [scrollY, setScrollY] = useState(0);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const containerRef = useRef(null);
+
+  // Language State
+  const [language, setLanguage] = useState('en');
+  // Translation function that gracefully falls back to English or the raw key if a translation is missing
+  const t = (section, key) => translations[language]?.[section]?.[key] || translations['en']?.[section]?.[key] || key;
+
+  // Generate random properties for particles and icons
+  const particles = useMemo(() => [...Array(30)].map(() => ({
+    size: Math.random() * 4 + 1,
+    top: Math.random() * 100,
+    left: Math.random() * 100,
+    duration: Math.random() * 5 + 5,
+    yOffset: Math.random() * 100 + 50,
+    xOffset: Math.random() * 50 - 25,
+  })), []);
+
+  const floatingIcons = useMemo(() => [...Array(15)].map((_, i) => ({
+    // Health themed emojis: pill, heart, cross
+    icon: ['💊', '❤️', '➕'][i % 3],
+    top: Math.random() * 100,
+    left: Math.random() * 100,
+    rotation: Math.random() * 360,
+    size: Math.random() * 16 + 10,
+    duration: Math.random() * 6 + 6,
+    yOffset: Math.random() * 60 + 30,
+    rotOffset: Math.random() * 180 - 90,
+  })), []);
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -38,8 +102,36 @@ export default function App() {
     ScrollTrigger.refresh();
   }, [currentPage]);
 
+  // Animate particles and icons using GSAP
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.utils.toArray('.bg-particle').forEach((particle, i) => {
+        gsap.to(particle, {
+          y: `-=${particles[i].yOffset}`,
+          x: `+=${particles[i].xOffset}`,
+          duration: particles[i].duration,
+          repeat: -1,
+          yoyo: true,
+          ease: 'sine.inOut'
+        });
+      });
+      gsap.utils.toArray('.bg-floating-icon').forEach((icon, i) => {
+        gsap.to(icon, {
+          y: `-=${floatingIcons[i].yOffset}`,
+          rotation: `+=${floatingIcons[i].rotOffset}`,
+          duration: floatingIcons[i].duration,
+          repeat: -1,
+          yoyo: true,
+          ease: 'sine.inOut'
+        });
+      });
+    }, containerRef);
+    return () => ctx.revert();
+  }, [particles, floatingIcons]);
+
   return (
-    <div ref={containerRef} className="min-h-screen bg-slate-950 text-white overflow-hidden">
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <div ref={containerRef} className={`min-h-screen overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
       <AnimatedGradientBackground />
       
       {/* Animated background orbs */}
@@ -47,6 +139,36 @@ export default function App() {
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute top-1/3 right-0 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
         <div className="absolute bottom-0 left-1/2 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+
+        {/* Floating Particles */}
+        {particles.map((p, i) => (
+          <div
+            key={`particle-${i}`}
+            className={`bg-particle absolute rounded-full bg-current transition-opacity duration-500 ${isDarkMode ? 'opacity-20' : 'opacity-10'}`}
+            style={{
+              width: `${p.size}px`,
+              height: `${p.size}px`,
+              top: `${p.top}%`,
+              left: `${p.left}%`,
+            }}
+          />
+        ))}
+
+        {/* Floating Icons */}
+        {floatingIcons.map((fi, i) => (
+          <div
+            key={`icon-${i}`}
+            className={`bg-floating-icon absolute transition-opacity duration-500 ${isDarkMode ? 'opacity-10' : 'opacity-5'}`}
+            style={{
+              top: `${fi.top}%`,
+              left: `${fi.left}%`,
+              fontSize: `${fi.size}px`,
+              transform: `rotate(${fi.rotation}deg)`
+            }}
+          >
+            {fi.icon}
+          </div>
+        ))}
       </div>
 
       {/* Navigation */}
@@ -63,18 +185,18 @@ export default function App() {
           </div>
 
           <div className="hidden md:flex items-center gap-8">
-            {['Home', 'Symptom', 'Medicine', 'Chat', 'History'].map((item) => (
+            {['home', 'symptom', 'medicine', 'chat', 'history'].map((item) => (
               <button
                 key={item}
-                onClick={() => setCurrentPage(item.toLowerCase())}
-                className={`relative px-4 py-2 transition-all ${
-                  currentPage === item.toLowerCase()
+                onClick={() => setCurrentPage(item)}
+                className={`relative px-4 py-2 transition-all capitalize ${
+                  currentPage === item
                     ? 'text-cyan-400 font-semibold'
                     : 'text-gray-300 hover:text-white'
                 }`}
               >
-                {item}
-                {currentPage === item.toLowerCase() && (
+                {t('nav', item)}
+                {currentPage === item && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-400 to-purple-600"></div>
                 )}
               </button>
@@ -82,8 +204,21 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="p-2.5 glass rounded-full hover:bg-white/10 transition-all">
-              ⚙️
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="p-2 glass rounded-lg bg-transparent border border-white/10 text-sm outline-none cursor-pointer focus:ring-2 focus:ring-cyan-500"
+            >
+              <option value="en" className="bg-slate-900 text-white">EN</option>
+              <option value="hi" className="bg-slate-900 text-white">हिंदी</option>
+              <option value="bn" className="bg-slate-900 text-white">বাংলা</option>
+            </select>
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-2.5 glass rounded-full hover:bg-white/20 transition-all"
+              title="Toggle Theme"
+            >
+              {isDarkMode ? '☀️' : '🌙'}
             </button>
           </div>
         </div>
@@ -98,10 +233,12 @@ export default function App() {
         {currentPage === 'history' && <HistoryPage />}
       </main>
     </div>
+    </LanguageContext.Provider>
   );
 }
 
 function HomePage() {
+  const { t } = useContext(LanguageContext);
   const heroRef = useRef(null);
   const cardsRef = useRef([]);
   const statsRef = useRef([]);
@@ -235,25 +372,25 @@ function HomePage() {
       <div ref={heroRef} className="max-w-7xl mx-auto px-6 py-20 space-y-8">
         <div className="space-y-6 max-w-3xl">
           <h1 ref={titleRef} className="text-7xl md:text-8xl font-black leading-tight">
-            <span className="gradient-text inline-block mr-3">Your</span>
-            <span className="gradient-text inline-block mr-3">AI</span>
-            <span className="gradient-text inline-block">Health</span>
+            <span className="gradient-text inline-block mr-3">{t('hero', 'your')}</span>
+            <span className="gradient-text inline-block mr-3">{t('hero', 'ai')}</span>
+            <span className="gradient-text inline-block">{t('hero', 'health')}</span>
             <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 inline-block">Companion</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 inline-block">{t('hero', 'companion')}</span>
           </h1>
           <p className="text-xl text-gray-300 max-w-2xl leading-relaxed animate-fade-in-delayed">
-            Advanced AI-powered health analysis, medicine verification, and 24/7 health support. All in one intelligent platform.
+            {t('hero', 'desc')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
             <button className="magnetic-btn relative group px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl font-bold text-white shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/80 transition-all overflow-hidden">
               <span className="relative z-10 flex items-center gap-2">
-                Start Now
+                {t('hero', 'start')}
                 <span className="group-hover:translate-x-2 transition-transform">→</span>
               </span>
               <div className="ripple-effect absolute inset-0 bg-white opacity-0 group-hover:opacity-10 rounded-xl"></div>
             </button>
             <button className="magnetic-btn px-8 py-4 glass rounded-xl font-bold hover:bg-white/10 transition-all relative overflow-hidden group">
-              <span className="relative z-10">Learn More</span>
+              <span className="relative z-10">{t('hero', 'learn')}</span>
               <div className="ripple-effect absolute inset-0 bg-cyan-400 opacity-0 group-hover:opacity-20 rounded-xl"></div>
             </button>
           </div>
@@ -262,9 +399,9 @@ function HomePage() {
         {/* Features Grid */}
         <div className="grid md:grid-cols-3 gap-6 pt-12">
           {[
-            { icon: '🩺', title: 'Smart Diagnosis', desc: 'AI-powered symptom analysis', color: 'from-cyan-500 to-blue-600' },
-            { icon: '💊', title: 'Medicine Check', desc: 'Verify authenticity instantly', color: 'from-purple-500 to-pink-600' },
-            { icon: '🤖', title: 'AI Assistant', desc: '24/7 health guidance', color: 'from-blue-500 to-cyan-600' },
+            { icon: '🩺', title: t('features', 'diag_title'), desc: t('features', 'diag_desc'), color: 'from-cyan-500 to-blue-600' },
+            { icon: '💊', title: t('features', 'med_title'), desc: t('features', 'med_desc'), color: 'from-purple-500 to-pink-600' },
+            { icon: '🤖', title: t('features', 'ai_title'), desc: t('features', 'ai_desc'), color: 'from-blue-500 to-cyan-600' },
           ].map((feature, idx) => (
             <div
               key={idx}
@@ -286,10 +423,10 @@ function HomePage() {
       {/* Stats with animation */}
       <div className="max-w-7xl mx-auto px-6 py-20 grid md:grid-cols-4 gap-8 relative z-20">
         {[
-          { label: 'Active Users', value: '100', suffix: 'K+' },
-          { label: 'Accuracy Rate', value: '98', suffix: '%' },
-          { label: 'Response Time', value: '500', suffix: 'ms' },
-          { label: 'Countries', value: '150', suffix: '+' },
+          { label: t('stats', 'users'), value: '100', suffix: 'K+' },
+          { label: t('stats', 'acc'), value: '98', suffix: '%' },
+          { label: t('stats', 'time'), value: '500', suffix: 'ms' },
+          { label: t('stats', 'countries'), value: '150', suffix: '+' },
         ].map((stat, idx) => (
           <div 
             key={idx} 
@@ -309,6 +446,7 @@ function HomePage() {
 }
 
 function SymptomPage() {
+  const { t } = useContext(LanguageContext);
   const [symptoms, setSymptoms] = useState('');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -391,8 +529,8 @@ function SymptomPage() {
       <div className="space-y-8">
         {/* Title */}
         <div ref={titleRef} className="space-y-3">
-          <h2 className="text-5xl font-black gradient-text">🩺 Symptom Analyzer</h2>
-          <p className="text-gray-400 text-lg">AI-powered disease prediction from your symptoms</p>
+          <h2 className="text-5xl font-black gradient-text">🩺 {t('symptom', 'title')}</h2>
+          <p className="text-gray-400 text-lg">{t('symptom', 'subtitle')}</p>
         </div>
 
         {!result ? (
@@ -401,19 +539,19 @@ function SymptomPage() {
             <div ref={formRef} className="glass p-12 rounded-2xl space-y-6 border border-white/10">
               {/* Textarea */}
               <div>
-                <label className="block text-sm text-gray-400 mb-3">Describe your symptoms:</label>
+                <label className="block text-sm text-gray-400 mb-3">{t('symptom', 'desc')}</label>
                 <textarea
                   value={symptoms}
                   onChange={(e) => setSymptoms(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="e.g., I have fever, cough, headache, and fatigue..."
+                  placeholder={t('symptom', 'ph')}
                   className="w-full h-32 glass rounded-xl p-4 text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
                 />
               </div>
 
               {/* Quick symptom selection */}
               <div>
-                <label className="block text-sm text-gray-400 mb-3">Or select common symptoms:</label>
+                <label className="block text-sm text-gray-400 mb-3">{t('symptom', 'common')}</label>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                   {commonSymptoms.map((symptom) => (
                     <button
@@ -441,7 +579,7 @@ function SymptomPage() {
                   disabled={loading}
                   className="flex-1 px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl font-bold text-white shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/80 transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
                 >
-                  {loading ? '🔄 Analyzing...' : '🔍 Analyze Symptoms'}
+                  {loading ? `🔄 ${t('symptom', 'analyzing')}` : `🔍 ${t('symptom', 'analyze')}`}
                 </button>
                 <button
                   onClick={() => {
@@ -450,7 +588,7 @@ function SymptomPage() {
                   }}
                   className="px-8 py-4 glass rounded-xl font-bold hover:bg-white/10 transition-all"
                 >
-                  Clear
+                  {t('symptom', 'clear')}
                 </button>
               </div>
             </div>
@@ -636,6 +774,7 @@ function SymptomPage() {
 }
 
 function MedicinePage() {
+  const { t } = useContext(LanguageContext);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -742,8 +881,8 @@ function MedicinePage() {
     <div className="min-h-screen max-w-5xl mx-auto px-6 py-20">
       <div className="space-y-8">
         <div ref={titleRef} className="space-y-3">
-          <h2 className="text-5xl font-black gradient-text">🔬 Medicine Authenticator</h2>
-          <p className="text-gray-400 text-lg">AI-powered medicine verification system - Detect counterfeit medicines instantly</p>
+          <h2 className="text-5xl font-black gradient-text">🔬 {t('medicine', 'title')}</h2>
+          <p className="text-gray-400 text-lg">{t('medicine', 'subtitle')}</p>
         </div>
 
         {!result ? (
@@ -767,9 +906,9 @@ function MedicinePage() {
             >
               <div className="text-6xl group-hover:scale-125 group-hover:rotate-12 transition-transform duration-300 inline-block">💊</div>
               <div>
-                <h3 className="text-xl font-bold mb-2">Upload Medicine Image</h3>
-                <p className="text-gray-400">PNG, JPG or WebP (Max 5MB)</p>
-                <p className="text-sm text-gray-500 mt-2">or drag and drop</p>
+                <h3 className="text-xl font-bold mb-2">{t('medicine', 'upload')}</h3>
+                <p className="text-gray-400">{t('medicine', 'format')}</p>
+                <p className="text-sm text-gray-500 mt-2">{t('medicine', 'drag')}</p>
               </div>
               <input
                 id="medicine-upload"
@@ -802,7 +941,7 @@ function MedicinePage() {
                       onClick={resetUpload}
                       className="px-4 py-2 bg-red-500/20 hover:bg-red-500/40 text-red-400 rounded-lg transition-all"
                     >
-                      ✕ Clear
+                      ✕ {t('medicine', 'clear')}
                     </button>
                   </div>
                 </div>
@@ -812,7 +951,7 @@ function MedicinePage() {
                   disabled={loading}
                   className="w-full px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl font-bold text-white shadow-lg shadow-purple-500/50 hover:shadow-purple-500/80 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? '🔄 Verifying...' : '🔐 Verify Authenticity'}
+                  {loading ? `🔄 ${t('medicine', 'verifying')}` : `🔐 ${t('medicine', 'verify')}`}
                 </button>
               </div>
             )}
@@ -1090,6 +1229,7 @@ function MedicinePage() {
 }
 
 function ChatPage() {
+  const { t } = useContext(LanguageContext);
   const [messages, setMessages] = useState([
     { role: 'bot', text: 'Hello! 👋 I\'m your AI health assistant. How can I help you today?' },
   ]);
@@ -1138,7 +1278,7 @@ function ChatPage() {
     <div ref={containerRef} className="min-h-screen max-w-2xl mx-auto px-6 py-20">
       <div className="glass rounded-2xl h-96 flex flex-col overflow-hidden border border-white/10">
         <div className="p-6 border-b border-white/10 bg-gradient-to-r from-cyan-500/10 to-blue-500/10">
-          <h2 className="text-2xl font-bold gradient-text">🤖 Health AI Chat</h2>
+          <h2 className="text-2xl font-bold gradient-text">{t('chat', 'title')}</h2>
         </div>
 
         <div ref={messagesRef} className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -1162,14 +1302,14 @@ function ChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Ask anything..."
+            placeholder={t('chat', 'ph')}
             className="flex-1 glass rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
           />
           <button
             onClick={handleSend}
             className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg font-bold hover:shadow-lg hover:shadow-cyan-500/50 transition-all hover:scale-105 active:scale-95"
           >
-            Send
+            {t('chat', 'btn')}
           </button>
         </div>
       </div>
@@ -1178,6 +1318,7 @@ function ChatPage() {
 }
 
 function HistoryPage() {
+  const { t } = useContext(LanguageContext);
   const [symptomHistory, setSymptomHistory] = useState([]);
   const [medicineHistory, setMedicineHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1265,7 +1406,7 @@ function HistoryPage() {
           onClick={() => setSelectedReport(null)}
           className="mb-6 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all"
         >
-          ← Back to History
+          ← {t('history', 'back')}
         </button>
 
         <div className="glass p-8 rounded-2xl border border-white/10 space-y-6">
@@ -1370,7 +1511,7 @@ function HistoryPage() {
   return (
     <div ref={containerRef} className="min-h-screen max-w-4xl mx-auto px-6 py-20">
       <div className="space-y-8">
-        <h2 className="text-5xl font-black gradient-text">📋 Health History</h2>
+        <h2 className="text-5xl font-black gradient-text">📋 {t('history', 'title')}</h2>
         
         {/* Tab Buttons */}
         <div className="flex gap-4">
@@ -1382,7 +1523,7 @@ function HistoryPage() {
                 : 'bg-white/5 border border-white/10 hover:bg-white/10'
             }`}
           >
-            🩺 Symptoms ({symptomHistory.length})
+            🩺 {t('history', 'symp_tab')} ({symptomHistory.length})
           </button>
           <button
             onClick={() => setActiveTab('medicine')}
@@ -1392,17 +1533,17 @@ function HistoryPage() {
                 : 'bg-white/5 border border-white/10 hover:bg-white/10'
             }`}
           >
-            💊 Medicine ({medicineHistory.length})
+            💊 {t('history', 'med_tab')} ({medicineHistory.length})
           </button>
         </div>
 
         {loading ? (
           <div className="text-center py-8">
-            <p className="text-gray-400">Loading history...</p>
+            <p className="text-gray-400">{t('history', 'loading')}</p>
           </div>
         ) : items.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-gray-400">No {activeTab} history yet. Start by analyzing your health!</p>
+            <p className="text-gray-400">{t('history', 'empty')}</p>
           </div>
         ) : (
           <div className="space-y-4 relative">
