@@ -17,6 +17,10 @@ const translations = {
     symptom: { title: 'Symptom Analyzer', subtitle: 'AI-powered disease prediction from your symptoms', desc: 'Describe your symptoms:', ph: 'e.g., I have fever, cough, headache, and fatigue...', common: 'Or select common symptoms:', analyze: 'Analyze Symptoms', analyzing: 'Analyzing...', clear: 'Clear' },
     medicine: { title: 'Medicine Authenticator', subtitle: 'AI-powered medicine verification system - Detect counterfeit medicines instantly', upload: 'Upload Medicine Image', format: 'PNG, JPG or WebP (Max 5MB)', drag: 'or drag and drop', verify: 'Verify Authenticity', verifying: 'Verifying...', clear: 'Clear' },
     chat: { title: 'AI Health Chat', ph: 'Type your health question...', btn: 'Send' },
+    history: { title: 'Health History', symp_tab: 'Symptoms', med_tab: 'Medicine', loading: 'Loading history...', empty: 'No history yet. Start by analyzing your health!', back: 'Back to History' },
+    login: { title: 'Welcome Back', subtitle: 'Login to access your health history and more.', email: 'Email Address', email_ph: 'you@example.com', password: 'Password', forgot: 'Forgot Password?', login_btn: 'Login', no_account: "Don't have an account?", signup: 'Sign Up' },
+    signup: { title: 'Create Account', subtitle: 'Join us to start your health journey.', name: 'Full Name', name_ph: 'John Doe', email: 'Email Address', email_ph: 'you@example.com', password: 'Password', confirm: 'Confirm Password', signup_btn: 'Sign Up', have_account: 'Already have an account?', login: 'Login' },
+    about: { title: 'About HealthAI', subtitle: 'Your trusted AI-powered health companion.', desc1: 'HealthAI is an advanced platform leveraging artificial intelligence to provide instant symptom analysis, verify medicine authenticity, and offer 24/7 health guidance.', desc2: 'Our mission is to make healthcare information accessible, accurate, and easy to understand for everyone.', warning: 'Please remember that our AI is an informational tool and not a substitute for professional medical advice.', back: 'Back to Home' }
   },
   hi: {
     nav: { home: 'होम', symptom: 'लक्षण', medicine: 'दवा', chat: 'चैट', history: 'इतिहास' },
@@ -27,7 +31,9 @@ const translations = {
     medicine: { title: 'दवा प्रमाणक', subtitle: 'एआई-संचालित दवा सत्यापन प्रणाली', upload: 'दवा की छवि अपलोड करें', format: 'PNG, JPG या WebP (अधिकतम 5MB)', drag: 'या खींचें और छोड़ें', verify: 'प्रामाणिकता सत्यापित करें', verifying: 'सत्यापित कर रहा है...', clear: 'साफ़ करें' },
     chat: { title: 'एआई स्वास्थ्य चैट', ph: 'अपना स्वास्थ्य प्रश्न टाइप करें...', btn: 'भेजें' },
     history: { title: 'स्वास्थ्य इतिहास', symp_tab: 'लक्षण', med_tab: 'दवा', loading: 'इतिहास लोड हो रहा है...', empty: 'अभी तक कोई इतिहास नहीं है। अपने स्वास्थ्य का विश्लेषण करके शुरू करें!', back: 'इतिहास पर वापस जाएं' },
-    login: { title: 'वापसी पर स्वागत है', subtitle: 'अपने स्वास्थ्य इतिहास और अधिक तक पहुंचने के लिए लॉगिन करें।', email: 'ईमेल पता', email_ph: 'you@example.com', password: 'पासवर्ड', forgot: 'पासवर्ड भूल गए?', login_btn: 'लॉगिन करें', no_account: 'खाता नहीं है?', signup: 'साइन अप करें' }
+    login: { title: 'वापसी पर स्वागत है', subtitle: 'अपने स्वास्थ्य इतिहास और अधिक तक पहुंचने के लिए लॉगिन करें।', email: 'ईमेल पता', email_ph: 'you@example.com', password: 'पासवर्ड', forgot: 'पासवर्ड भूल गए?', login_btn: 'लॉगिन करें', no_account: 'खाता नहीं है?', signup: 'साइन अप करें' },
+    signup: { title: 'खाता बनाएं', subtitle: 'अपनी स्वास्थ्य यात्रा शुरू करने के लिए हमसे जुड़ें।', name: 'पूरा नाम', name_ph: 'जॉन डो', email: 'ईमेल पता', email_ph: 'you@example.com', password: 'पासवर्ड', confirm: 'पासवर्ड की पुष्टि करें', signup_btn: 'साइन अप करें', have_account: 'क्या आपके पास पहले से एक खाता है?', login: 'लॉगिन करें' },
+    about: { title: 'HealthAI के बारे में', subtitle: 'आपका विश्वसनीय एआई-संचालित स्वास्थ्य साथी।', desc1: 'HealthAI एक उन्नत मंच है जो त्वरित लक्षण विश्लेषण प्रदान करने, दवा की प्रामाणिकता सत्यापित करने और 24/7 स्वास्थ्य मार्गदर्शन प्रदान करने के लिए कृत्रिम बुद्धिमत्ता का लाभ उठाता है।', desc2: 'हमारा मिशन स्वास्थ्य देखभाल की जानकारी को सभी के लिए सुलभ, सटीक और समझने में आसान बनाना है।', warning: 'कृपया याद रखें कि हमारा एआई एक सूचनात्मक उपकरण है और पेशेवर चिकित्सा सलाह का विकल्प नहीं है।', back: 'होम पर वापस जाएं' }
   },
   bn: {
     nav: { home: 'হোম', symptom: 'লক্ষণ', medicine: 'ওষুধ', chat: 'চ্যাট', history: 'ইতিহাস' },
@@ -38,7 +44,9 @@ const translations = {
     medicine: { title: 'ওষুধ যাচাইকারী', subtitle: 'এআই-চালিত ওষুধ যাচাইকরণ সিস্টেম', upload: 'ওষুধের ছবি আপলোড করুন', format: 'PNG, JPG বা WebP (সর্বোচ্চ 5MB)', drag: 'বা টেনে আনুন এবং ছেড়ে দিন', verify: 'সত্যতা যাচাই করুন', verifying: 'যাচাই করা হচ্ছে...', clear: 'পরিষ্কার করুন' },
     chat: { title: 'এআই স্বাস্থ্য চ্যাট', ph: 'আপনার স্বাস্থ্য প্রশ্ন টাইপ করুন...', btn: 'পাঠান' },
     history: { title: 'স্বাস্থ্য ইতিহাস', symp_tab: 'লক্ষণ', med_tab: 'ওষুধ', loading: 'ইতিহাস লোড হচ্ছে...', empty: 'এখনও কোন ইতিহাস নেই। আপনার স্বাস্থ্য বিশ্লেষণ করে শুরু করুন!', back: 'ইতিহাসে ফিরে যান' },
-    login: { title: 'স্বাগতম', subtitle: 'আপনার স্বাস্থ্য ইতিহাস এবং আরও অনেক কিছু অ্যাক্সেস করতে লগইন করুন।', email: 'ইমেল ঠিকানা', email_ph: 'you@example.com', password: 'পাসওয়ার্ড', forgot: 'পাসওয়ার্ড ভুলে গেছেন?', login_btn: 'লগইন করুন', no_account: 'অ্যাকাউন্ট নেই?', signup: 'সাইন আপ করুন' }
+    login: { title: 'স্বাগতম', subtitle: 'আপনার স্বাস্থ্য ইতিহাস এবং আরও অনেক কিছু অ্যাক্সেস করতে লগইন করুন।', email: 'ইমেল ঠিকানা', email_ph: 'you@example.com', password: 'পাসওয়ার্ড', forgot: 'পাসওয়ার্ড ভুলে গেছেন?', login_btn: 'লগইন করুন', no_account: 'অ্যাকাউন্ট নেই?', signup: 'সাইন আপ করুন' },
+    signup: { title: 'অ্যাকাউন্ট তৈরি করুন', subtitle: 'আপনার স্বাস্থ্য যাত্রা শুরু করতে আমাদের সাথে যোগ দিন।', name: 'পুরো নাম', name_ph: 'জন ডো', email: 'ইমেল ঠিকানা', email_ph: 'you@example.com', password: 'পাসওয়ার্ড', confirm: 'পাসওয়ার্ড নিশ্চিত করুন', signup_btn: 'সাইন আপ করুন', have_account: 'ইতিমধ্যেই একটি অ্যাকাউন্ট আছে?', login: 'লগইন করুন' },
+    about: { title: 'HealthAI সম্পর্কে', subtitle: 'আপনার বিশ্বস্ত এআই-চালিত স্বাস্থ্য সঙ্গী।', desc1: 'HealthAI হল একটি উন্নত প্ল্যাটফর্ম যা তাত্ক্ষণিক লক্ষণ বিশ্লেষণ প্রদান করতে, ওষুধের সত্যতা যাচাই করতে এবং 24/7 স্বাস্থ্য নির্দেশিকা প্রদান করতে কৃত্রিম বুদ্ধিমত্তা ব্যবহার করে।', desc2: 'আমাদের লক্ষ্য হল স্বাস্থ্যসেবা তথ্য সবার জন্য অ্যাক্সেসযোগ্য, সঠিক এবং সহজে বোঝা যায় এমন করা।', warning: 'দয়া করে মনে রাখবেন যে আমাদের এআই একটি তথ্যমূলক সরঞ্জাম এবং পেশাদার চিকিৎসা পরামর্শের বিকল্প নয়।', back: 'হোমে ফিরে যান' }
   }
 };
 
@@ -84,7 +92,7 @@ export default function App() {
   // Sync URL with page state
   useEffect(() => {
     const path = window.location.pathname.slice(1) || 'home';
-    const page = ['home', 'symptom', 'medicine', 'chat', 'history', 'login'].includes(path) ? path : 'home';
+    const page = ['home', 'symptom', 'medicine', 'chat', 'history', 'login', 'signup', 'about'].includes(path) ? path : 'home';
     setCurrentPage(page);
   }, []);
 
@@ -233,6 +241,8 @@ export default function App() {
         {currentPage === 'chat' && <ChatPage />}
         {currentPage === 'history' && <HistoryPage />}
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} />}
+        {currentPage === 'signup' && <SignupPage setCurrentPage={setCurrentPage} />}
+        {currentPage === 'about' && <AboutPage setCurrentPage={setCurrentPage} />}
       </main>
     </div>
     </LanguageContext.Provider>
@@ -391,7 +401,7 @@ function HomePage({ setCurrentPage }) {
               </span>
               <div className="ripple-effect absolute inset-0 bg-white opacity-0 group-hover:opacity-10 rounded-xl"></div>
             </button>
-            <button className="magnetic-btn px-8 py-4 glass rounded-xl font-bold hover:bg-white/10 transition-all relative overflow-hidden group">
+            <button onClick={() => setCurrentPage('about')} className="magnetic-btn px-8 py-4 glass rounded-xl font-bold hover:bg-white/10 transition-all relative overflow-hidden group">
               <span className="relative z-10">{t('hero', 'learn')}</span>
               <div className="ripple-effect absolute inset-0 bg-cyan-400 opacity-0 group-hover:opacity-20 rounded-xl"></div>
             </button>
@@ -442,6 +452,51 @@ function HomePage({ setCurrentPage }) {
             <p className="text-gray-400 mt-3">{stat.label}</p>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function AboutPage({ setCurrentPage }) {
+  const { t } = useContext(LanguageContext);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    gsap.fromTo(containerRef.current,
+      { opacity: 0, y: 30, scale: 0.98 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: 'power3.out' }
+    );
+  }, []);
+
+  return (
+    <div ref={containerRef} className="min-h-screen max-w-4xl mx-auto px-6 py-20">
+      <button
+        onClick={() => setCurrentPage('home')}
+        className="mb-8 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all"
+      >
+        ← {t('about', 'back')}
+      </button>
+
+      <div className="glass p-12 rounded-2xl space-y-8 border border-white/10">
+        <div className="text-center space-y-4">
+          <div className="inline-flex relative w-24 h-24 rounded-full bg-gradient-to-br from-cyan-400 to-purple-600 items-center justify-center shadow-lg shadow-cyan-500/50 mb-4 animate-bounce">
+            <span className="text-5xl">🔬</span>
+          </div>
+          <h2 className="text-5xl font-black gradient-text">{t('about', 'title')}</h2>
+          <p className="text-xl text-cyan-400 font-semibold">{t('about', 'subtitle')}</p>
+        </div>
+
+        <div className="space-y-6 text-lg text-gray-300 leading-relaxed mt-12">
+          <p className="glass p-6 rounded-xl border-l-4 border-cyan-500 bg-cyan-500/5 hover:bg-cyan-500/10 transition-colors">{t('about', 'desc1')}</p>
+          <p className="glass p-6 rounded-xl border-l-4 border-purple-500 bg-purple-500/5 hover:bg-purple-500/10 transition-colors">{t('about', 'desc2')}</p>
+          
+          <div className="p-6 bg-yellow-500/10 border border-yellow-500/30 rounded-xl mt-8">
+            <p className="text-yellow-400 font-bold flex items-center gap-2 mb-2">
+              <span className="text-2xl">⚠️</span> Important Notice
+            </p>
+            <p className="text-yellow-200/80 text-base">{t('about', 'warning')}</p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -504,7 +559,7 @@ function LoginPage({ setCurrentPage }) {
 
         <p className="text-sm text-gray-400">
           {t('login', 'no_account')}{' '}
-          <button onClick={() => {/* TODO: navigate to signup page */}} className="font-bold text-cyan-400 hover:underline">{t('login', 'signup')}</button>
+          <button onClick={() => setCurrentPage('signup')} className="font-bold text-cyan-400 hover:underline">{t('login', 'signup')}</button>
         </p>
       </div>
     </div>
@@ -834,6 +889,84 @@ function SymptomPage() {
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SignupPage({ setCurrentPage }) {
+  const { t } = useContext(LanguageContext);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    gsap.fromTo(containerRef.current,
+      { opacity: 0, y: 50, scale: 0.95 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: 'power3.out' }
+    );
+  }, []);
+
+  const handleSignup = (e) => {
+    e.preventDefault();
+    // Placeholder for actual signup logic/API call
+    setCurrentPage('login');
+  };
+
+  return (
+    <div ref={containerRef} className="min-h-screen max-w-md mx-auto px-6 py-20">
+      <div className="glass p-12 rounded-2xl space-y-8 border border-white/10 text-center">
+        <h2 className="text-4xl font-black gradient-text">{t('signup', 'title')}</h2>
+        <p className="text-gray-400">{t('signup', 'subtitle')}</p>
+        
+        <form onSubmit={handleSignup} className="space-y-5 text-left">
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">{t('signup', 'name')}</label>
+            <input 
+              type="text"
+              placeholder={t('signup', 'name_ph')}
+              required
+              className="w-full glass rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">{t('signup', 'email')}</label>
+            <input 
+              type="email"
+              placeholder={t('signup', 'email_ph')}
+              required
+              className="w-full glass rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">{t('signup', 'password')}</label>
+            <input 
+              type="password"
+              placeholder="••••••••"
+              required
+              className="w-full glass rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">{t('signup', 'confirm')}</label>
+            <input 
+              type="password"
+              placeholder="••••••••"
+              required
+              className="w-full glass rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all"
+            />
+          </div>
+          
+          <button
+            type="submit"
+            className="w-full px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl font-bold text-white shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/80 transition-all hover:scale-105 active:scale-95"
+          >
+            {t('signup', 'signup_btn')}
+          </button>
+        </form>
+
+        <p className="text-sm text-gray-400">
+          {t('signup', 'have_account')}{' '}
+          <button onClick={() => setCurrentPage('login')} className="font-bold text-cyan-400 hover:underline">{t('signup', 'login')}</button>
+        </p>
       </div>
     </div>
   );
