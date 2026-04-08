@@ -1,0 +1,5 @@
+# Railway.app Configuration
+# Deploy the AI Health Assistant to Railway
+
+[docs]
+railroad = "docs/railway/deployment.md"

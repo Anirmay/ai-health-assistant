@@ -36,19 +36,19 @@ class MedicineDetector:
             is_authentic = confidence > 70
             
             return {
-                'is_authentic': is_authentic,
-                'confidence': confidence / 100,
+                'is_authentic': bool(is_authentic),
+                'confidence': float(confidence / 100),
                 'details': {
-                    'hologram_detected': results['hologram'],
-                    'barcode_valid': results['barcode_valid'],
-                    'color_consistency': results['colors_consistent'],
-                    'text_clarity': results['text_clear']
+                    'hologram_detected': bool(results['hologram']),
+                    'barcode_valid': bool(results['barcode_valid']),
+                    'color_consistency': bool(results['colors_consistent']),
+                    'text_clarity': bool(results['text_clear'])
                 }
             }
         except Exception as e:
             return {
                 'is_authentic': False,
-                'confidence': 0,
+                'confidence': 0.0,
                 'details': {'error': str(e)}
             }
     
