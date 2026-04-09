@@ -370,6 +370,58 @@ class SymptomDiseasePredictor:
     def get_available_symptoms(self):
         """Return list of available symptoms for UI dropdown"""
         return list(self.symptom_disease_db.keys())
+    
+    def is_symptom_supported(self, symptom):
+        """
+        Check if a symptom is supported by the model
+        
+        Args:
+            symptom: Symptom string to check
+        
+        Returns:
+            Boolean indicating if symptom is in the trained database
+        """
+        symptom_clean = symptom.strip().lower().replace(' ', '_')
+        return symptom_clean in self.symptom_disease_db
+    
+    def validate_symptoms(self, symptoms_list):
+        """
+        Validate a list of symptoms against the trained database
+        
+        Args:
+            symptoms_list: List of symptom strings (or comma-separated string)
+        
+        Returns:
+            Dict with:
+            - supported: List of supported symptoms
+            - unsupported: List of unsupported symptoms
+            - all_supported: Boolean - True if all are supported
+            - common_suggestions: List of common supported symptoms to suggest
+        """
+        if isinstance(symptoms_list, str):
+            symptoms_list = [s.strip().lower() for s in symptoms_list.split(',')]
+        else:
+            symptoms_list = [s.strip().lower() for s in symptoms_list]
+        
+        supported = []
+        unsupported = []
+        
+        for symptom in symptoms_list:
+            if self.is_symptom_supported(symptom):
+                supported.append(symptom)
+            else:
+                unsupported.append(symptom)
+        
+        # Get common symptoms suggestions (most linked to diseases)
+        all_available = self.get_available_symptoms()
+        common_suggestions = sorted(all_available, key=lambda s: len(self.symptom_disease_db.get(s, [])), reverse=True)[:5]
+        
+        return {
+            'supported': supported,
+            'unsupported': unsupported,
+            'all_supported': len(unsupported) == 0,
+            'common_suggestions': common_suggestions
+        }
 
 
 # Create global predictor instance
@@ -382,3 +434,7 @@ def predict_disease_from_symptoms(symptoms):
 def get_symptom_suggestions():
     """Get available symptoms for suggestions"""
     return predictor.get_available_symptoms()
+
+def validate_symptoms_support(symptoms_list):
+    """Public function to validate symptom support"""
+    return predictor.validate_symptoms(symptoms_list)

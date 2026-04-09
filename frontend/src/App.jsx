@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useMemo, createContext, useContext 
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import AnimatedGradientBackground from './components/AnimatedGradientBackground';
+import ChatWidget from './components/ChatWidget';
+import ScrollToTop from './components/ScrollToTop';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -105,9 +107,8 @@ export default function App() {
     }
   }, [currentPage]);
 
-  // Scroll to top when page changes
+  // Scroll handling and animations refresh on page change
   useEffect(() => {
-    window.scrollTo(0, 0);
     ScrollTrigger.refresh();
   }, [currentPage]);
 
@@ -141,6 +142,8 @@ export default function App() {
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t }}>
     <div ref={containerRef} className={`min-h-screen overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
+      {/* Scroll to top on page change */}
+      <ScrollToTop currentPage={currentPage} />
       <AnimatedGradientBackground />
       
       {/* Animated background orbs */}
@@ -234,7 +237,7 @@ export default function App() {
       </nav>
 
       {/* Main Content */}
-      <main className="relative z-10 pt-24">
+      <main className="relative z-10 pt-24 min-h-[calc(100vh-96px)] overflow-y-auto">
         {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'symptom' && <SymptomPage />}
         {currentPage === 'medicine' && <MedicinePage />}
@@ -624,6 +627,19 @@ function SymptomPage() {
       const data = await response.json();
       setResult(data);
 
+      // Save analysis context to localStorage for chat context
+      if (data.status === 'success' && data.results && data.results.length > 0) {
+        const primaryResult = data.results[0];
+        const analysisContext = {
+          disease: primaryResult.disease,
+          symptoms: symptoms,
+          confidence: primaryResult.confidence,
+          risk_level: data.risk_level,
+          timestamp: new Date().toISOString()
+        };
+        localStorage.setItem('lastAnalysis', JSON.stringify(analysisContext));
+      }
+
       // Animate result
       setTimeout(() => {
         gsap.fromTo(resultRef.current,
@@ -718,6 +734,29 @@ function SymptomPage() {
           <>
             {/* Results Display */}
             <div ref={resultRef} className="space-y-6">
+              {/* NLP SYMPTOM MAPPING - SHOW WHAT SYSTEM UNDERSTOOD */}
+              {result && result.symptom_mappings && result.symptom_mappings.length > 0 && (
+                <div className="glass p-6 rounded-lg border-l-4 border-blue-500 bg-blue-500/10">
+                  <p className="text-sm text-gray-400 mb-3">🧠 NLP SYMPTOM INTERPRETATION</p>
+                  <div className="space-y-2">
+                    {result.symptom_mappings.map((mapping, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-300">
+                          "{mapping.user_input}" <span className="text-blue-400 mx-2">→</span>
+                          <span className="text-blue-300 font-semibold">"{mapping.mapped_symptom}"</span>
+                        </span>
+                        <span className="text-blue-400 font-bold">{Math.round(mapping.confidence * 100)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                  {result.mapping_confidence < 0.7 && (
+                    <p className="text-xs text-yellow-400 mt-3">
+                      ⚠️ Low confidence mapping. Results may be less accurate.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* EMERGENCY ALERT - HIGHEST PRIORITY - DISPLAY AT TOP */}
               {result && result.emergency_alert && result.emergency_alert.alert && (
                 <div className="animate-pulse">
@@ -742,8 +781,123 @@ function SymptomPage() {
                 </div>
               )}
 
-              {/* Data Quality Warning - DISPLAY IF LIMITED SYMPTOMS */}
-              {result && result.data_quality_warning && !result.emergency_alert?.alert && (
+              {/* UNSUPPORTED SYMPTOM - GRACEFUL FALLBACK MESSAGE */}
+              {result && result.status === 'unsupported_symptom' && (
+                <div className="space-y-6">
+                  {/* Unsupported Symptom Alert */}
+                  <div className="glass p-8 rounded-2xl border-l-8 border-orange-500 bg-gradient-to-r from-orange-500/20 to-yellow-500/20">
+                    <div className="flex items-start gap-4">
+                      <div className="text-4xl">⚠️</div>
+                      <div className="flex-1">
+                        <p className="text-2xl font-black text-orange-400 mb-3">Limitations Detected</p>
+                        <p className="text-lg text-orange-300 mb-4">
+                          {result.message}
+                        </p>
+                        
+                        {/* Show which symptoms are unsupported */}
+                        {result.unsupported_symptoms && result.unsupported_symptoms.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-sm text-orange-300 mb-2">❌ Not supported in current model:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {result.unsupported_symptoms.map((symptom, idx) => (
+                                <span key={idx} className="px-3 py-1 glass rounded-full text-sm text-orange-300 border border-orange-400/50">
+                                  {symptom}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Show supported symptoms if any */}
+                        {result.supported_symptoms && result.supported_symptoms.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-sm text-green-300 mb-2">✅ Supported symptoms:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {result.supported_symptoms.map((symptom, idx) => (
+                                <span key={idx} className="px-3 py-1 glass rounded-full text-sm text-green-300 border border-green-400/50">
+                                  {symptom}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Suggestion */}
+                        {result.suggestion && (
+                          <div className="bg-blue-500/20 p-4 rounded-lg border border-blue-400/30">
+                            <p className="text-blue-300 font-semibold mb-2">{result.suggestion}</p>
+                            {result.common_suggestions && result.common_suggestions.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-3">
+                                {result.common_suggestions.map((suggestion, idx) => (
+                                  <button
+                                    key={idx}
+                                    onClick={() => {
+                                      const currentSymptoms = symptoms.trim() ? symptoms + ', ' + suggestion : suggestion;
+                                      setSymptoms(currentSymptoms);
+                                    }}
+                                    className="px-3 py-1.5 glass rounded text-xs font-medium hover:bg-blue-500/30 hover:border-blue-500/50 border border-blue-400/30 transition-all"
+                                  >
+                                    + {suggestion}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* What You Can Do */}
+                  <div className="glass p-6 rounded-xl border border-white/10">
+                    <h4 className="font-bold text-white mb-4">💡 What You Can Do:</h4>
+                    <ul className="space-y-3">
+                      <li className="flex items-start gap-3">
+                        <span className="text-lg">1️⃣</span>
+                        <span className="text-gray-300">Try adding more common symptoms like fever, cough, headache, or fatigue</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="text-lg">2️⃣</span>
+                        <span className="text-gray-300">Use simpler descriptions (e.g., "head pain" instead of "photophobia")</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="text-lg">3️⃣</span>
+                        <span className="text-gray-300">Combine with other related symptoms for better prediction</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="text-lg">4️⃣</span>
+                        <span className="text-gray-300">Always consult a healthcare professional for accurate diagnosis</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Try Again Button */}
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => {
+                        setResult(null);
+                        setError(null);
+                      }}
+                      className="flex-1 px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl font-bold text-white shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/80 transition-all hover:scale-105 active:scale-95"
+                    >
+                      🔄 Try Different Symptoms
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSymptoms('');
+                        setResult(null);
+                        setError(null);
+                      }}
+                      className="flex-1 px-8 py-4 glass rounded-xl font-bold hover:bg-white/10 transition-all"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Data Quality Warning - DISPLAY IF LIMITED SYMPTOMS (but not unsupported) */}
+              {result && result.data_quality_warning && !result.emergency_alert?.alert && result.status !== 'unsupported_symptom' && (
                 <div className="glass p-6 rounded-lg border-l-4 border-yellow-500 bg-yellow-500/10">
                   <p className="text-yellow-400 font-semibold flex items-center gap-2">
                     <span>⚠️</span>
@@ -755,8 +909,8 @@ function SymptomPage() {
                 </div>
               )}
 
-              {/* Main Result Card */}
-              {result.primary_disease && (
+              {/* Only show main results if status is 'success' (not unsupported_symptom) */}
+              {result && result.status !== 'unsupported_symptom' && result.primary_disease && (
                 <div className="glass p-8 rounded-2xl border-l-8 border-green-500">
                   <div className="flex items-start justify-between mb-6">
                     <div>
@@ -774,7 +928,7 @@ function SymptomPage() {
                     <div className="glass p-4 rounded-lg border border-cyan-500/30">
                       <p className="text-gray-400 text-sm">Confidence</p>
                       <p className="text-3xl font-bold text-cyan-400">
-                        {result.primary_disease.confidence}%
+                        {result.primary_disease?.confidence ? `${result.primary_disease.confidence}%` : 'Calculating...'}
                       </p>
                     </div>
                     <div className="glass p-4 rounded-lg border border-yellow-500/30">
@@ -841,7 +995,7 @@ function SymptomPage() {
               )}
 
               {/* Alternative Diagnoses */}
-              {result.results && result.results.length > 1 && (
+              {result?.results && result.results.length > 1 && result.status !== 'unsupported_symptom' && (
                 <div className="glass p-8 rounded-2xl border border-white/10">
                   <h4 className="text-xl font-bold gradient-text mb-4">Alternative Possibilities</h4>
                   <div className="space-y-3">
@@ -852,7 +1006,7 @@ function SymptomPage() {
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="font-semibold">{disease.disease}</p>
-                          <p className="text-blue-400 font-bold">{disease.confidence}%</p>
+                          <p className="text-blue-400 font-bold">{disease.confidence ? `${disease.confidence}%` : 'N/A'}</p>
                         </div>
                         <p className="text-sm text-gray-400">{disease.advice}</p>
                       </div>
@@ -862,30 +1016,34 @@ function SymptomPage() {
               )}
 
               {/* Important Notice */}
-              <div className="glass p-6 rounded-xl border-l-4 border-yellow-500 bg-yellow-500/10">
-                <p className="font-bold text-yellow-400 mb-2">⚠️ Important Disclaimer</p>
-                <p className="text-sm text-gray-300">
-                  This AI analysis is for informational purposes only and should not replace professional medical advice. 
-                  Always consult a qualified healthcare provider for proper diagnosis and treatment.
-                </p>
-              </div>
+              {result && result.status !== 'unsupported_symptom' && (
+                <div className="glass p-6 rounded-xl border-l-4 border-yellow-500 bg-yellow-500/10">
+                  <p className="font-bold text-yellow-400 mb-2">⚠️ Important Disclaimer</p>
+                  <p className="text-sm text-gray-300">
+                    This AI analysis is for informational purposes only and should not replace professional medical advice. 
+                    Always consult a qualified healthcare provider for proper diagnosis and treatment.
+                  </p>
+                </div>
+              )}
 
-              {/* Action Buttons */}
-              <div className="flex gap-4">
-                <button
-                  onClick={() => {
-                    setResult(null);
-                    setSymptoms('');
-                    setError(null);
-                  }}
-                  className="flex-1 px-8 py-4 glass hover:bg-white/10 rounded-xl font-bold transition-all"
-                >
-                  🔄 Analyze Again
-                </button>
-                <button className="flex-1 px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl font-bold text-white shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/80 transition-all">
-                  💾 Save Results
-                </button>
-              </div>
+              {/* Action Buttons for Success Case */}
+              {result && result.status !== 'unsupported_symptom' && (
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => {
+                      setResult(null);
+                      setSymptoms('');
+                      setError(null);
+                    }}
+                    className="flex-1 px-8 py-4 glass hover:bg-white/10 rounded-xl font-bold transition-all"
+                  >
+                    🔄 Analyze Again
+                  </button>
+                  <button className="flex-1 px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl font-bold text-white shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/80 transition-all">
+                    💾 Save Results
+                  </button>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -1433,8 +1591,11 @@ function ChatPage() {
     { role: 'bot', text: 'Hello! 👋 I\'m your AI health assistant. How can I help you today?' },
   ]);
   const [input, setInput] = useState('');
+  const [analysisContext, setAnalysisContext] = useState(null);
+  const [aiStatus, setAiStatus] = useState('checking');
   const messagesRef = useRef(null);
   const containerRef = useRef(null);
+  const chatWidgetRef = useRef(null);
 
   useEffect(() => {
     gsap.fromTo(containerRef.current,
@@ -1444,33 +1605,81 @@ function ChatPage() {
   }, []);
 
   useEffect(() => {
-    if (messagesRef.current) {
-      messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
-      
-      // Animate new messages
-      const newMessages = messagesRef.current.querySelectorAll('[data-new="true"]');
-      gsap.fromTo(newMessages,
-        { opacity: 0, y: 20, scale: 0.9 },
-        { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: 'back.out(1.5)' }
-      );
-    }
-  }, [messages]);
+    // Check AI service status
+    fetch('/api/ai/status')
+      .then(res => res.json())
+      .then(data => {
+        setAiStatus(data.status === 'operational' ? 'operational' : 'unavailable');
+      })
+      .catch(err => {
+        setAiStatus('unavailable');
+      });
 
-  const handleSend = () => {
+    // Try to load last analysis context from localStorage
+    const lastAnalysis = localStorage.getItem('lastAnalysis');
+    if (lastAnalysis) {
+      try {
+        const context = JSON.parse(lastAnalysis);
+        setAnalysisContext(context);
+      } catch (e) {
+        console.error('Failed to parse last analysis');
+      }
+    }
+  }, []);
+
+  const handleSend = async () => {
     if (!input.trim()) return;
-    
-    setMessages([...messages, { role: 'user', text: input }]);
+
+    // Add user message
+    const userMessage = { role: 'user', text: input };
+    setMessages(prev => [...prev, userMessage]);
     setInput('');
 
+    // Auto-scroll to bottom
     setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'bot',
-          text: 'Thanks for your question! Based on your query, I recommend consulting with a healthcare professional for personalized medical advice.',
-        },
-      ]);
-    }, 800);
+      if (messagesRef.current) {
+        messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+      }
+    }, 0);
+
+    try {
+      // Call backend chat API
+      const response = await fetch('http://localhost:5000/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: input,
+          context: analysisContext
+        })
+      });
+
+      const data = await response.json();
+      const botMessage = {
+        role: 'bot',
+        text: data.ai_response?.answer || data.message || 'I\'m having trouble responding right now.'
+      };
+      setMessages(prev => [...prev, botMessage]);
+
+      // Auto-scroll
+      setTimeout(() => {
+        if (messagesRef.current) {
+          messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+        }
+      }, 0);
+    } catch (error) {
+      console.error('Chat error:', error);
+      const errorMessage = {
+        role: 'bot',
+        text: 'Sorry, I encountered an error. Please try again.'
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  };
+
+  const handleExampleQuestion = (question) => {
+    if (chatWidgetRef.current) {
+      chatWidgetRef.current.sendMessage(question);
+    }
   };
 
   return (
@@ -1480,22 +1689,31 @@ function ChatPage() {
           <h2 className="text-2xl font-bold gradient-text">{t('chat', 'title')}</h2>
         </div>
 
-        <div ref={messagesRef} className="flex-1 overflow-y-auto p-6 space-y-4">
+        {/* AI Service Status */}
+        {aiStatus !== 'operational' && (
+          <div className="p-4 bg-yellow-500/10 border-b border-yellow-500/30 text-yellow-300">
+            <p className="text-sm">
+              ⚠️ AI service is currently unavailable. Basic chat functionality is available, but LLM-powered features may not work.
+            </p>
+          </div>
+        )}
+
+        {/* Messages Display */}
+        <div ref={messagesRef} className="flex-1 overflow-y-auto p-4 space-y-4 text-gray-100">
           {messages.map((msg, idx) => (
-            <div key={idx} data-new="true" className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className={`max-w-xs px-4 py-3 rounded-lg ${
-                  msg.role === 'user'
-                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-br-none shadow-lg shadow-cyan-500/30'
-                    : 'glass rounded-bl-none border border-white/10'
-                }`}
-              >
+            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-xs px-4 py-2 rounded-lg ${
+                msg.role === 'user'
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white'
+                  : 'bg-slate-700 text-gray-100'
+              }`}>
                 {msg.text}
               </div>
             </div>
           ))}
         </div>
 
+        {/* Input Area */}
         <div className="p-4 border-t border-white/10 flex gap-2 bg-slate-900/50">
           <input
             value={input}
