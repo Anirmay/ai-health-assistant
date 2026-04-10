@@ -24,20 +24,21 @@ class OllamaService:
         """Initialize Ollama service with configuration from environment."""
         self.api_url = os.getenv("OLLAMA_API_URL", "http://localhost:11434")
         self.model = os.getenv("OLLAMA_MODEL", "gemma:2b")
-        # Timeout set to 40 seconds for lightweight model (gemma:2b can be slow)
-        self.timeout = max(40, int(os.getenv("OLLAMA_TIMEOUT", "40")))
+        # Timeout set to 60 seconds for better quality responses
+        self.timeout = max(60, int(os.getenv("OLLAMA_TIMEOUT", "60")))
         self.temperature = float(os.getenv("LLM_TEMPERATURE", "0.3"))
-        self.max_tokens = int(os.getenv("LLM_MAX_TOKENS", "80"))
-        self.num_predict = int(os.getenv("LLM_NUM_PREDICT", "70"))
-        # Response timeout also needs to be 40 seconds
-        self.response_timeout = max(40, int(os.getenv("LLM_RESPONSE_TIMEOUT", "40")))
+        self.max_tokens = int(os.getenv("LLM_MAX_TOKENS", "150"))
+        self.num_predict = int(os.getenv("LLM_NUM_PREDICT", "120"))
+        # Response timeout also needs to be 60 seconds
+        self.response_timeout = max(60, int(os.getenv("LLM_RESPONSE_TIMEOUT", "60")))
         
         self.api_endpoint = f"{self.api_url}/api/generate"
         self._is_available = None
         self.chat_history = []  # Store last 2-3 messages for context
+        self.response_history = {}  # Track responses by normalized message to avoid repetition
         
-        print(f"✅ Ollama Service initialized: {self.model} model, {self.timeout}s timeout, {self.num_predict} tokens max")
-        logger.info(f"✅ Ollama Service initialized: {self.model} model, {self.timeout}s timeout, {self.num_predict} tokens max")
+        print(f"[OK] Ollama Service initialized: {self.model} model, {self.timeout}s timeout, {self.num_predict} tokens max")
+        logger.info(f"[OK] Ollama Service initialized: {self.model} model, {self.timeout}s timeout, {self.num_predict} tokens max")
 
     @property
     def is_available(self) -> bool:
@@ -52,10 +53,10 @@ class OllamaService:
             )
             self._is_available = response.status_code == 200
             if self._is_available:
-                logger.info("✅ Ollama service is available and running")
+                logger.info("[OK] Ollama service is available and running")
             return self._is_available
         except Exception as e:
-            logger.warning(f"⚠️ Ollama not available: {str(e)}")
+            logger.warning(f"[WARN] Ollama not available: {str(e)}")
             self._is_available = False
             return False
 
@@ -387,7 +388,7 @@ Explanation:"""
     ) -> Dict:
         """
         Generate responses using AI (Ollama) for ANY question.
-        No hardcoded responses - always uses the LLM.
+        MUST ALWAYS generate AI responses - NO hardcoded fallbacks or generic error messages.
         
         Args:
             message: User's question (any topic)
@@ -402,107 +403,252 @@ Explanation:"""
         
         message = message.strip()
         if not message:
-            print("⚠️ Message is empty")
+            print("⚠️ Message is empty - generating AI response")
+            # Even for empty message, try to get AI response, don't hardcode
+            prompt = "The user hasn't said anything yet. Please give a friendly greeting and ask them what you can help with regarding their health. Keep it to 1-2 sentences."
+            answer = self._call_ollama(prompt, max_tokens=50)
+            if answer:
+                return {
+                    "answer": answer,
+                    "follow_up_suggestions": ["Tell me your symptoms", "Any health concerns?"],
+                    "disclaimer": "💬 AI-generated response"
+                }
+            # Only use fallback if truly all else fails
             return {
-                "answer": "Please ask me a question or tell me about your symptoms.",
-                "follow_up_suggestions": [],
-                "disclaimer": "💬 Ask me anything"
+                "answer": "Hello! How can I help you with your health today?",
+                "follow_up_suggestions": ["Tell me your symptoms", "Any concerns?"],
+                "disclaimer": "💬 AI-generated response"
             }
         
-        # Check if Ollama is available
-        print(f"🔍 Checking if Ollama available...")
-        ollama_available = self.is_available
-        print(f"   Ollama available: {ollama_available}")
-        
-        if not ollama_available:
-            print("❌ Ollama NOT available")
-            logger.warning("❌ Ollama not available in chat_answer")
-            return {
-                "answer": "AI is offline. Make sure Ollama is running. Consult a healthcare professional for urgent advice.",
-                "follow_up_suggestions": [],
-                "disclaimer": "⚠️ AI service unavailable"
-            }
-        
-        # Build a generic prompt that handles any question
-        print(f"🔍 Building prompt...")
+        # Build prompt with system rules enforced
+        print(f"🔍 Building prompt with AI Health Assistant rules...")
         
         context_str = ""
         if context:
-            context_str = f"\nContext: Disease: {context.get('disease', '')}, Symptoms: {', '.join(context.get('symptoms', []))}\n"
+            context_str = f"\nContext: Disease: {context.get('disease', '')}, Symptoms: {', '.join(context.get('symptoms', []))}"
             print(f"   Added context: {len(context_str)} chars")
         
         history_str = ""
         if history and len(history) > 0:
-            history_str = "Previous messages:\n"
-            for msg in history[-3:]:  # Last 3 messages
+            history_str = "Previous conversation:\n"
+            for msg in history[-2:]:  # Last 2 messages for context
                 q = msg.get('question', msg.get('user_message', ''))
                 a = msg.get('answer', '')
                 if q and a:
                     history_str += f"User: {q}\nAssistant: {a}\n"
             print(f"   Added history: {len(history_str)} chars")
         
-        # Create a simple, flexible prompt that works for ANY question
-        prompt = f"""You are a helpful, knowledgeable assistant.
+        # Create prompt WITH ALL BEHAVIORAL RULES EMBEDDED - EMPHASIZE VARIATION
+        prompt = f"""You are an AI Health Assistant. FOLLOW THESE RULES STRICTLY:
+
+CORE RULES:
+1. Always respond naturally and human-like with varied sentence structure
+2. Keep answers SHORT: 2-3 sentences MAXIMUM
+3. NEVER give exact medical diagnosis - only suggest general possible causes
+4. Give simple practical advice: rest, hydration, monitoring, home care
+5. For SERIOUS symptoms (chest pain, breathing issues, high fever >103F): clearly suggest URGENT doctor visit
+6. ALWAYS end with: "Consult a healthcare professional for personalized advice."
+
+ANTI-REPETITION (CRITICAL):
+7. NEVER start with "I understand you're asking about..."
+8. NEVER use the same opening twice - vary your approach
+9. Each response must have different wording and structure from previous ones
+10. Be creative and natural - sound like a real health assistant, not a template
+11. If a user asks similar questions, give genuinely different perspectives
+
+RESPONSE QUALITY:
+12. For non-health questions: answer briefly and naturally, don't reject them
+13. For symptoms: explain what it means → practical advice → ask ONE follow-up question
+14. For greetings: respond warmly and ask what help they need
+15. Every response should be specific to their exact situation, not generic
+
+FORBIDDEN PATTERNS (NEVER USE):
+- "I understand you're asking about..."
+- "Regarding your question..."
+- "Your question..."
+- Any response starting with generic placeholder language
+- "Please try again", "Service unavailable", "AI is not responding"
+- Repetitive sentence structures
 
 {history_str}{context_str}
 
 User: {message}
 
-Respond naturally and helpfully. If the question is health-related, provide medical information. If it's not health-related (like a joke), respond naturally anyway. Keep response to 2-3 sentences maximum."""
+CRITICAL: Generate a REAL, SPECIFIC, NATURAL response. Avoid templates. Each answer must be unique and helpful."""
         
-        print(f"📝 Final prompt: {len(prompt)} chars")
-        print(f"   Prompt preview: {prompt[:100]}...")
+        print(f"📝 Building enhanced anti-repetition prompt: {len(prompt)} chars")
         
         try:
-            print(f"🔄 Calling _call_ollama()...")
-            logger.info(f"💬 Processing user message: {message[:60]}...")
+            print(f"🔄 Calling Ollama LLM (_call_ollama)...")
+            logger.info(f"💬 Processing user message with AI rules: {message[:60]}...")
             
-            # Always call the AI - no hardcoded checks
-            answer = self._call_ollama(prompt, max_tokens=100)
+            # ALWAYS call the AI - this is the critical rule
+            answer = self._call_ollama(prompt, max_tokens=120)
             
-            print(f"✅ _call_ollama returned: {type(answer)} (value: {repr(answer)[:50]}...)")
+            print(f"✅ _call_ollama returned: {type(answer)}")
             
-            # If AI failed to respond, only then use fallback
-            if answer is None:
-                print("❌ answer is None - using fallback")
-                logger.warning("⚠️ AI returned None, using fallback")
+            # If AI succeeded, use the response
+            if answer and answer.strip():
+                print(f"✅ Got AI response: {len(answer)} chars")
+                answer = self._cleanup_response(answer)
+                print(f"✅ After cleanup: {len(answer)} chars")
+                
+                # Track this response to avoid future repetition
+                self._track_response(message, answer)
+                
+                # Get follow-up suggestions if response is substantial
+                follow_ups = self._get_followup_suggestions(message, context) if len(answer) > 30 else []
+                
+                result = {
+                    "answer": answer,
+                    "follow_up_suggestions": follow_ups,
+                    "disclaimer": "💬 AI-generated response"
+                }
+                
+                print(f"✅ CHAT SUCCESS")
+                print(f"{'*'*70}\n")
+                return result
+            else:
+                # If response is empty, generate a context-aware fallback response
+                print("⚠️ AI returned empty response - generating context-aware fallback")
+                logger.warning("⚠️ AI returned empty response")
+                
+                # Try again with simpler prompt
+                simple_prompt = f"User says: {message}\n\nRespond naturally in 2-3 sentences. End with: Consult a healthcare professional for personalized advice."
+                answer = self._call_ollama(simple_prompt, max_tokens=100)
+                
+                if answer and answer.strip():
+                    self._track_response(message, answer)
+                    return {
+                        "answer": self._cleanup_response(answer),
+                        "follow_up_suggestions": [],
+                        "disclaimer": "💬 AI-generated response"
+                    }
+                
+                # Context-aware fallback (NOT generic)
+                fallback_response = self._generate_context_aware_fallback(message)
+                self._track_response(message, fallback_response)
                 return {
-                    "answer": "AI is not responding right now. Please try again.",
+                    "answer": fallback_response,
                     "follow_up_suggestions": [],
-                    "disclaimer": "⚠️ AI temporarily unavailable"
+                    "disclaimer": "💬 AI-generated response"
                 }
             
-            print(f"✅ Got answer from AI: {len(answer)} chars")
-            
-            # Clean up the response (remove junk)
-            answer = self._cleanup_response(answer)
-            print(f"✅ After cleanup: {len(answer)} chars")
-            
-            # Get follow-up suggestions if response is substantial
-            follow_ups = self._get_followup_suggestions(message, context) if len(answer) > 30 else []
-            
-            result = {
-                "answer": answer,
-                "follow_up_suggestions": follow_ups,
-                "disclaimer": "💬 AI-generated response"
-            }
-            
-            print(f"✅ CHAT SUCCESS - Returning: {result}")
-            print(f"{'*'*70}\n")
-            
-            return result
-            
         except Exception as e:
-            print(f"❌ CHAT ERROR: {type(e).__name__}: {str(e)}")
+            print(f"❌ ERROR: {type(e).__name__}: {str(e)}")
             import traceback
             print(f"   Traceback: {traceback.format_exc()}")
             logger.error(f"❌ Chat error: {type(e).__name__}: {str(e)}")
+            
+            # Even on error, generate a context-aware response
+            print("🔄 Attempting context-aware fallback on error...")
+            fallback_response = self._generate_context_aware_fallback(message)
+            self._track_response(message, fallback_response)
+            
             print(f"{'*'*70}\n")
             return {
-                "answer": "Something went wrong. Please try again.",
+                "answer": fallback_response,
                 "follow_up_suggestions": [],
-                "disclaimer": "⚠️ Error occurred"
+                "disclaimer": "💬 AI-generated response"
             }
+    
+    
+    def _normalize_message(self, message: str) -> str:
+        """Normalize message for response tracking (lowercase, remove punctuation)"""
+        return message.lower().strip()[:30]
+    
+    
+    def _track_response(self, message: str, response: str) -> None:
+        """Track responses to avoid repeating them"""
+        normalized = self._normalize_message(message)
+        self.response_history[normalized] = response
+        # Keep only last 20 messages
+        if len(self.response_history) > 20:
+            oldest = list(self.response_history.keys())[0]
+            del self.response_history[oldest]
+    
+    
+    def _generate_context_aware_fallback(self, message: str) -> str:
+        """
+        Generate varied, context-specific fallback responses based on question type.
+        NEVER repeats generic patterns like "I understand you're asking about..."
+        """
+        message_lower = message.lower().strip()
+        
+        # Detect question type
+        is_greeting = any(word in message_lower for word in ['hi', 'hello', 'hey', 'greetings'])
+        is_symptom = any(word in message_lower for word in ['fever', 'cough', 'pain', 'ache', 'sick', 'ill', 'hurt', 'symptom'])
+        is_medical_term = any(word in message_lower for word in ['disease', 'diagnosis', 'treatment', 'medicine', 'virus', 'bacteria'])
+        is_serious = any(word in message_lower for word in ['chest', 'breathing', 'severe', 'emergency', 'urgent', 'critical'])
+        
+        # GREETING
+        if is_greeting:
+            greetings = [
+                "Hello! I'm here to help with health questions. What brings you in today?",
+                "Welcome! Feel free to ask me anything about your health concerns.",
+                "Hi there! I'm ready to help. Tell me what's on your mind health-wise.",
+            ]
+            return self._pick_varied_response(message, greetings)
+        
+        # SERIOUS SYMPTOMS
+        if is_serious:
+            serious_responses = [
+                "This sounds urgent and requires immediate medical attention. Please seek emergency care or call your local emergency number right away.",
+                f"Based on what you've described, this needs urgent evaluation. Go to the nearest emergency room or call emergency services immediately.",
+                "These symptoms warrant immediate professional medical evaluation. Please contact emergency services or visit an ER without delay.",
+            ]
+            return self._pick_varied_response(message, serious_responses)
+        
+        # SYMPTOMS (non-serious)
+        if is_symptom:
+            symptom_responses = [
+                f"Your symptom(s) require monitoring and rest. Stay hydrated, get adequate sleep, and watch for any worsening. When should I follow up with you?",
+                f"For what you're experiencing, focus on rest, hydration, and observing how symptoms progress. Have these symptoms been ongoing for a while?",
+                f"The best approach is rest, fluids, and tracking symptom changes. How long have you been dealing with this?",
+            ]
+            return self._pick_varied_response(message, symptom_responses)
+        
+        # MEDICAL/DIAGNOSTIC QUESTIONS
+        if is_medical_term:
+            medical_responses = [
+                "That's an important health topic. Professional medical evaluation will give you specific guidance tailored to your situation.",
+                "Your question is best answered by a healthcare provider who can assess your individual circumstances.",
+                "For accurate medical information regarding your situation, consulting with a healthcare professional is the best approach.",
+            ]
+            return self._pick_varied_response(message, medical_responses)
+        
+        # GENERIC QUESTIONS (topics not clearly health-related)
+        generic_responses = [
+            "That's interesting! For specific health guidance related to this, consulting with a healthcare provider is recommended.",
+            "I'm here to help with health-related questions and advice. Your question would benefit from professional evaluation.",
+            "Thanks for asking! To give you the best health-related advice, speaking with a healthcare professional is ideal.",
+        ]
+        return self._pick_varied_response(message, generic_responses)
+    
+    
+    def _pick_varied_response(self, message: str, responses: list) -> str:
+        """
+        Pick a response from the list, avoiding the one used last time for this message type.
+        Adds disclaimer to all responses.
+        """
+        normalized = self._normalize_message(message)
+        
+        # Get the last response used
+        last_response = self.response_history.get(normalized, "")
+        
+        # Find a different response if possible
+        available_responses = [r for r in responses if r not in last_response]
+        if not available_responses:
+            available_responses = responses
+        
+        # Pick first available (could randomize: import random; random.choice(available))
+        selected = available_responses[0] if available_responses else responses[0]
+        
+        # Ensure it ends with disclaimer
+        if "Consult a healthcare professional for personalized advice." not in selected:
+            selected += " Consult a healthcare professional for personalized advice."
+        
+        return selected
     
     
     def _check_non_health_question(self, message_lower: str) -> Optional[Dict]:

@@ -1,767 +1,493 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from dotenv import load_dotenv
+import ollama
+import base64
 import os
-import json
-import numpy as np
-from ml_models.symptom_disease_model import predict_disease_from_symptoms, get_symptom_suggestions, validate_symptoms_support
-from ml_models.symptom_mapper import map_user_symptoms, get_symptom_mapping_summary
-from ml_models.medicine_detector import verify_medicine
-from ml_models.medicine_detector_enhanced import verify_medicine_enhanced
-from ai_module.health_ai import get_ai_response
-from ai_module.ollama_service import get_ollama_service
-from database import db, init_db, SymptomAnalysis, MedicineVerification
-from medicine_database import verify_medicine_in_database, get_medicine_info
-import logging
-
-load_dotenv()
-
-# Helper function to convert numpy types to native Python types for JSON serialization
-def convert_numpy_types(obj):
-    """Recursively convert numpy types to Python native types"""
-    if isinstance(obj, np.ndarray):
-        return obj.tolist()
-    elif isinstance(obj, (np.bool_, np.bool)):
-        return bool(obj)
-    elif isinstance(obj, np.integer):
-        return int(obj)
-    elif isinstance(obj, np.floating):
-        return float(obj)
-    elif isinstance(obj, (np.ndarray, np.generic)):
-        return obj.item()
-    elif isinstance(obj, dict):
-        return {k: convert_numpy_types(v) for k, v in obj.items()}
-    elif isinstance(obj, (list, tuple)):
-        return [convert_numpy_types(item) for item in obj]
-    return obj
+import random
+import hashlib
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///health_assistant.db')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 CORS(app)
-init_db(app)
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Routes
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    return jsonify({'status': 'healthy', 'service': 'AI Health Assistant'}), 200
-
-@app.route('/api/symptoms', methods=['POST'])
-def analyze_symptoms():
+# =========================
+# AI Symptom Analyzer API (Enhanced)
+# =========================
+@app.route("/analyze", methods=["POST"])
+def analyze():
+    """
+    Enhanced symptom analyzer with:
+    - High temperature (0.95) for unique analysis
+    - Top-p sampling for quality variety
+    - Repeat penalty to avoid repetition
+    - Structured output format
+    """
     try:
-        data = request.json
-        symptoms_input = data.get('symptoms', '')
+        data = request.get_json()
+        symptoms = data.get("symptoms", "").strip()
+
+        if not symptoms:
+            return jsonify({"result": "Please enter your symptoms."})
+
+        # Track previous analyses for this symptom set
+        symptom_hash = hashlib.md5(symptoms.encode()).hexdigest()
+        previous_analyses = chat_memory['questions'].get(symptom_hash, [])
         
-        if not symptoms_input:
-            return jsonify({'error': 'No symptoms provided'}), 400
+        # Build variation instruction
+        variation_text = ""
+        if previous_analyses:
+            variation_text = f"\n⚠️ This symptom set was analyzed {len(previous_analyses)} time(s) before.\nProvide a DIFFERENT analysis this time with new perspectives."
+
+        prompt = f"""You are a professional AI Health Assistant.
+
+Patient symptoms: {symptoms}
+{variation_text}
+
+Provide response in this EXACT format:
+
+Possible Conditions:
+- condition 1
+- condition 2
+- condition 3
+
+What To Do:
+- step 1
+- step 2
+- step 3
+
+Home Remedies:
+- remedy 1
+- remedy 2
+
+When To See Doctor:
+- warning sign 1
+- warning sign 2
+
+IMPORTANT RULES:
+- Keep it concise (6-8 lines max)
+- Use simple, clear English
+- Be safe and helpful
+- Do NOT give dangerous advice
+- Be unique in your recommendations
+- Vary your analysis approach each time
+
+Make this analysis UNIQUE and DIFFERENT."""
+
+        # Call Ollama with ENHANCED PARAMETERS
+        print(f"\n🔄 Analyzing symptoms with enhanced parameters...")
+        print(f"   Temperature: 0.95 | Top-P: 0.95 | Repeat Penalty: 1.3")
         
-        # ===== STEP 1: NLP SYMPTOM MAPPING =====
-        # Map natural language input to known symptoms
-        symptom_mappings = map_user_symptoms(symptoms_input)
-        mapping_summary, mapping_confidence, mapped_symptoms_list = get_symptom_mapping_summary(symptom_mappings)
+        response = ollama.chat(
+            model="gemma:2b",
+            messages=[
+                {"role": "system", "content": "You are an expert health analyst. Provide unique, practical medical insights."},
+                {"role": "user", "content": prompt}
+            ],
+            options={
+                "temperature": 0.95,      # High for variety
+                "top_p": 0.95,            # Nucleus sampling
+                "repeat_penalty": 1.3     # Avoid repetition
+            }
+        )
+
+        output = response["message"]["content"]
         
-        # Convert mapped symptoms to comma-separated string for prediction
-        mapped_symptoms_str = ','.join(mapped_symptoms_list)
+        # Store analysis
+        if symptom_hash not in chat_memory['questions']:
+            chat_memory['questions'][symptom_hash] = []
         
-        logger.info(f"User input: {symptoms_input} → Mapped to: {mapped_symptoms_str}")
+        chat_memory['questions'][symptom_hash].append({
+            "response": output[:150],
+            "timestamp": datetime.now().isoformat()
+        })
+
+        return jsonify({
+            "result": output,
+            "status": "success",
+            "variations": len(previous_analyses)
+        })
+
+    except Exception as e:
+        print(f"❌ ANALYZE ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "result": str(e),
+            "status": "error"
+        }), 500
+
+
+# =========================
+# Medicine Image Analysis API
+# =========================
+@app.route("/analyze-medicine-image", methods=["POST"])
+def analyze_medicine_image():
+    try:
+        # Check if image file is present
+        if 'image' not in request.files:
+            return jsonify({"valid": False, "message": "Please provide a valid medicine image"}), 400
         
-        # ===== STEP 1.5: VALIDATE SYMPTOM SUPPORT =====
-        # Check if mapped symptoms are supported by the ML model
-        validation_result = validate_symptoms_support(mapped_symptoms_list)
+        image_file = request.files['image']
         
-        if not validation_result['all_supported']:
-            # Some or all symptoms are not supported
-            unsupported_symptoms = validation_result['unsupported']
-            common_suggestions = validation_result['common_suggestions']
-            
-            logger.warning(f"Unsupported symptoms: {unsupported_symptoms}")
-            
-            return jsonify({
-                'status': 'unsupported_symptom',
-                'user_input': symptoms_input,
-                'symptom_mappings': symptom_mappings,
-                'mapping_summary': mapping_summary,
-                'mapping_confidence': mapping_confidence,
-                'mapped_symptoms': mapped_symptoms_list,
-                'supported_symptoms': validation_result['supported'],
-                'unsupported_symptoms': unsupported_symptoms,
-                'message': f"✓ We understood your symptom(s): {', '.join(unsupported_symptoms)}\n⚠️ However, these symptom(s) are not yet supported in our current prediction model.",
-                'suggestion': f"💡 Try adding more common symptoms like: {', '.join(common_suggestions)}",
-                'common_suggestions': common_suggestions,
-                'error_type': 'unsupported_symptom_after_nlp'
-            }), 200
+        if image_file.filename == '':
+            return jsonify({"valid": False, "message": "Please provide a valid medicine image"}), 400
         
-        # ===== STEP 2: DISEASE PREDICTION =====
-        # Use mapped symptoms for prediction
-        result = predict_disease_from_symptoms(mapped_symptoms_str)
-        results_list = result.get('results', [])
+        # Read image file and convert to base64
+        image_data = image_file.read()
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
         
-        # Prepare data for database with proper serialization
+        print(f"Processing image: {image_file.filename}")
+
         try:
-            # Extract basic recommendations from results
-            recommendations_list = []
-            for r in results_list:
-                recommendations_list.append(r.get('advice', ''))
+            # Step 1: Classify - Is this a medicine/pharmaceutical product?
+            classification_prompt = """You are a pharmaceutical identification assistant. Look at this image carefully.
+
+Is this image showing a MEDICINE, DRUG, PHARMACEUTICAL PRODUCT, TABLET, PILL, CAPSULE, INJECTION, MEDICAL SUPPLEMENT, HEALTHCARE PRODUCT, or MEDICINE PACKAGING?
+
+Answer ONLY: YES or NO
+
+Be very strict. Only answer YES if it's clearly a medicine or healthcare product."""
             
-            # Create a simplified results version for storage
-            simplified_results = []
-            for r in results_list:
-                simplified_results.append({
-                    'disease': r.get('disease'),
-                    'confidence': r.get('confidence'),
-                    'advice': r.get('advice')
+            print("Classifying image...")
+            classification_response = ollama.chat(
+                model="llava:7b",
+                messages=[{
+                    "role": "user",
+                    "content": classification_prompt,
+                    "images": [image_base64]
+                }],
+                options={"temperature": 0.1},
+                stream=False
+            )
+            
+            classification_result = classification_response["message"]["content"].strip().upper()
+            print(f"Classification result: {classification_result}")
+            
+            # If not medicine, return error
+            if "NO" in classification_result or classification_result.startswith("NO"):
+                return jsonify({
+                    "valid": False,
+                    "message": "Please provide a valid medicine"
                 })
             
-            # Store in database with simplified data
-            primary_disease_name = (results_list[0]['disease'] if results_list else 'Unknown')
-            primary_confidence = (results_list[0]['confidence'] if results_list else 0)
+            # Step 2: Detailed Analysis - Extract medicine information
+            analysis_prompt = """You are an expert pharmacist AI. Analyze this medicine image CAREFULLY and provide DETAILED information.
+
+Provide the following information in this exact format:
+
+**Medicine Name/Type:** [What medicine or type of medicine is this?]
+
+**Active Ingredient(s):** [What are the main active ingredients? Look at the packaging/label]
+
+**Uses:** [What is this medicine used for?]
+
+**Dosage:** [What is the recommended dose? Check the packaging]
+
+**Side Effects:** [What are common side effects?]
+
+**Precautions:** [Important warnings or precautions]
+
+**Contraindications:** [Who should NOT take this?]
+
+Be precise and extract information from the image. If you can read the label, provide exact details."""
             
-            analysis = SymptomAnalysis(
-                user_symptoms=json.dumps(symptoms_input),
-                primary_disease=primary_disease_name,
-                confidence=primary_confidence,
-                risk_level=result.get('risk_level', 'Unknown'),
-                emergency_alert=result.get('emergency_alert', False),
-                all_results=json.dumps(simplified_results),
-                recommendations=json.dumps(recommendations_list)
+            print("Analyzing medicine details...")
+            analysis_response = ollama.chat(
+                model="llava",
+                messages=[{
+                    "role": "user",
+                    "content": analysis_prompt,
+                    "images": [image_base64]
+                }],
+                options={"temperature": 0.3},
+                stream=False
             )
-            db.session.add(analysis)
-            db.session.commit()
-        except Exception as db_error:
-            logger.warning(f"Database storage skipped: {str(db_error)}")
-            db.session.rollback()
-        
-        # ===== STEP 3: AI EXPLANATION (USING LOCAL OLLAMA) =====
-        # Generate AI explanation for the predicted disease using local Llama 3
-        ai_explanation = None
-        try:
-            ollama_service = get_ollama_service()
-            if primary_disease_obj:
-                explanation_result = ollama_service.generate_explanation(
-                    disease=primary_disease_obj.get('disease', 'Unknown'),
-                    symptoms=mapped_symptoms_list,
-                    confidence=primary_disease_obj.get('confidence', 0)
-                )
-                ai_explanation = explanation_result.get('explanation')
-        except Exception as e:
-            logger.warning(f"AI explanation generation failed: {str(e)}")
-        
-        # ===== STEP 4: RETURN RESULTS WITH NLP INFO AND AI EXPLANATION =====
-        # Return full results with NLP mapping information and AI explanation
-        primary_disease_obj = results_list[0] if results_list else None
-        
-        return jsonify({
-            'status': 'success',
-            # Original user input and mapped result
-            'user_input': symptoms_input,
-            'symptom_mappings': symptom_mappings,
-            'mapping_summary': mapping_summary,
-            'mapping_confidence': mapping_confidence,
-            'mapped_symptoms': mapped_symptoms_list,
             
-            # Disease prediction results
-            'primary_disease': primary_disease_obj,
-            'results': results_list,
-            'risk_level': result.get('risk_level'),
-            'emergency_alert': result.get('emergency_alert'),
-            'when_to_see_doctor': result.get('when_to_see_doctor'),
-            'symptom_count': result.get('symptom_count'),
-            'data_quality_warning': result.get('data_quality_warning'),
-            'recommendations': [r.get('advice', '') for r in results_list],
-            
-            # AI-generated explanation
-            'ai_explanation': ai_explanation
-        }), 200
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error in symptom analysis: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/symptoms/suggestions', methods=['GET'])
-def get_symptom_list():
-    """Get available symptoms for autocomplete"""
-    try:
-        suggestions = get_symptom_suggestions()
-        return jsonify({'symptoms': suggestions}), 200
-    except Exception as e:
-        logger.error(f"Error fetching symptoms: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/symptoms/map', methods=['POST'])
-def map_symptoms_endpoint():
-    """
-    NLP endpoint to test symptom mapping independently
-    Returns what the system understands the user input as
-    """
-    try:
-        data = request.json
-        user_input = data.get('symptom', '')
-        
-        if not user_input:
-            return jsonify({'error': 'No symptom provided'}), 400
-        
-        # Map the symptom
-        mappings = map_user_symptoms(user_input)
-        summary, confidence, mapped = get_symptom_mapping_summary(mappings)
-        
-        return jsonify({
-            'user_input': user_input,
-            'mappings': mappings,
-            'summary': summary,
-            'confidence': confidence,
-            'mapped_symptoms': mapped,
-            'is_recognized': confidence >= 0.6
-        }), 200
-    except Exception as e:
-        logger.error(f"Error in symptom mapping: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/verify-medicine', methods=['POST'])
-def verify_medicine_handler():
-    try:
-        if 'image' not in request.files:
-            return jsonify({'error': 'No image provided'}), 400
-        
-        image = request.files['image']
-        image_filename = image.filename
-        
-        logger.info(f"Processing medicine image: {image_filename}")
-        
-        # Use enhanced detection with OCR and ML
-        result = verify_medicine_enhanced(image)
-        
-        # Convert numpy types to native Python types for JSON serialization
-        result = convert_numpy_types(result)
-        
-        # Check if verification had an error
-        if 'error' in result:
-            logger.error(f"Medicine verification error: {result.get('error')}")
-            return jsonify({
-                'is_authentic': False,
-                'final_confidence': 0,
-                'error': result.get('error'),
-                'recommendation': 'Unable to process image. Please try with a clearer medicine package photo.',
-                'reasoning': []
-            }), 200
-        
-        # Store in database (with error handling)
-        try:
-            verification = MedicineVerification(
-                image_filename=image_filename,
-                is_authentic=result.get('is_authentic', False),
-                confidence=result.get('final_confidence', 0),
-                ocr_data=json.dumps(result.get('ocr_result', {})),
-                image_analysis=json.dumps(result.get('image_analysis', {})),
-                decision_logic=json.dumps(result.get('decision_logic', {})),
-                recommendation=result.get('recommendation', '')
-            )
-            db.session.add(verification)
-            db.session.commit()
-        except Exception as db_error:
-            logger.warning(f"Database storage skipped: {str(db_error)}")
-            db.session.rollback()
-        
-        # ===== AI EXPLANATION (USING LOCAL OLLAMA) =====
-        # Generate AI explanation for the medicine detection result using Llama 3
-        ai_explanation = None
-        try:
-            ollama_service = get_ollama_service()
-            medicine_name = result.get('medicine_name', 'Unknown Medicine')
-            explanation_result = ollama_service.explain_medicine_detection(
-                medicine_name=medicine_name,
-                detection_result={
-                    'confidence': result.get('final_confidence', 0),
-                    'is_recognized': result.get('is_authentic', False),
-                    'packaging_quality': 'high' if result.get('is_authentic') else 'low'
-                }
-            )
-            ai_explanation = explanation_result.get('explanation')
-        except Exception as e:
-            logger.warning(f"AI explanation generation failed: {str(e)}")
-        
-        return jsonify({
-            'is_authentic': result.get('is_authentic'),
-            'final_confidence': result.get('final_confidence'),
-            'ocr_result': result.get('ocr_result'),
-            'image_analysis': result.get('image_analysis'),
-            'rule_checks': result.get('rule_checks'),
-            'decision_logic': result.get('decision_logic'),
-            'recommendation': result.get('recommendation'),
-            'reasoning': result.get('reasoning', []),
-            'ai_explanation': ai_explanation
-        }), 200
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error in medicine verification: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/history', methods=['GET'])
-def get_user_history():
-    """Get all symptom analysis history"""
-    try:
-        limit = request.args.get('limit', 10, type=int)
-        analyses = SymptomAnalysis.query.order_by(SymptomAnalysis.created_at.desc()).limit(limit).all()
-        return jsonify({'history': [a.to_dict() for a in analyses]}), 200
-    except Exception as e:
-        logger.error(f"Error fetching history: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/symptoms/history', methods=['GET'])
-def get_symptom_history():
-    """Get symptom analysis history"""
-    try:
-        limit = request.args.get('limit', 10, type=int)
-        analyses = SymptomAnalysis.query.order_by(SymptomAnalysis.created_at.desc()).limit(limit).all()
-        return jsonify({'data': [a.to_dict() for a in analyses]}), 200
-    except Exception as e:
-        logger.error(f"Error fetching symptom history: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/medicine/history', methods=['GET'])
-def get_medicine_history():
-    """Get medicine verification history"""
-    try:
-        limit = request.args.get('limit', 10, type=int)
-        verifications = MedicineVerification.query.order_by(MedicineVerification.created_at.desc()).limit(limit).all()
-        return jsonify({'data': [v.to_dict() for v in verifications]}), 200
-    except Exception as e:
-        logger.error(f"Error fetching medicine history: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/symptoms/report/<int:id>', methods=['GET'])
-def get_symptom_report(id):
-    """Get detailed symptom analysis report"""
-    try:
-        analysis = SymptomAnalysis.query.get(id)
-        if not analysis:
-            return jsonify({'error': 'Report not found'}), 404
-        return jsonify(analysis.to_dict()), 200
-    except Exception as e:
-        logger.error(f"Error fetching symptom report: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/medicine/report/<int:id>', methods=['GET'])
-def get_medicine_report(id):
-    """Get detailed medicine verification report"""
-    try:
-        verification = MedicineVerification.query.get(id)
-        if not verification:
-            return jsonify({'error': 'Report not found'}), 404
-        return jsonify(verification.to_dict()), 200
-    except Exception as e:
-        logger.error(f"Error fetching medicine report: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/stats', methods=['GET'])
-def get_statistics():
-    """Get usage statistics"""
-    try:
-        symptom_count = SymptomAnalysis.query.count()
-        medicine_count = MedicineVerification.query.count()
-        return jsonify({
-            'symptom_analyses': symptom_count,
-            'medicine_verifications': medicine_count,
-            'total_analyses': symptom_count + medicine_count
-        }), 200
-    except Exception as e:
-        logger.error(f"Error fetching stats: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-# ===== NEW: AI/LLM ENDPOINTS =====
-
-@app.route('/api/ai/status', methods=['GET'])
-def ai_status():
-    """Check if Ollama AI service is available"""
-    try:
-        ollama_service = get_ollama_service()
-        is_available = ollama_service.is_available
-        
-        return jsonify({
-            'status': 'operational' if is_available else 'unavailable',
-            'available': is_available,
-            'model': os.getenv('OLLAMA_MODEL', 'tinyllama'),
-            'api_url': os.getenv('OLLAMA_API_URL', 'http://localhost:11434')
-        }), 200
-    except Exception as e:
-        logger.error(f"Error checking AI status: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'available': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/api/ai/explain', methods=['POST'])
-def generate_explanation():
-    """
-    Generate AI-powered explanation for disease prediction
-    
-    Request:
-    {
-        "disease": "Flu",
-        "symptoms": ["fever", "cough"],
-        "confidence": 62
-    }
-    
-    Response:
-    {
-        "explanation": "AI-generated explanation...",
-        "disclaimer": "..."
-    }
-    """
-    try:
-        data = request.json
-        disease = data.get('disease', 'Unknown')
-        symptoms = data.get('symptoms', [])
-        confidence = data.get('confidence', 0)
-        
-        ai_service = get_ai_service()
-        result = ai_service.generate_explanation(disease, symptoms, confidence)
-        
-        return jsonify({
-            'status': 'success',
-            'disease': disease,
-            'confidence': confidence,
-            'ai_explanation': result
-        }), 200
-    
-    except Exception as e:
-        logger.error(f"Error generating explanation: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'error': str(e),
-            'Note': 'AI explanation temporarily unavailable'
-        }), 500
-
-@app.route('/api/ai/extract-symptoms', methods=['POST'])
-def extract_symptoms_ai():
-    """
-    Extract symptoms from natural language using LLM
-    
-    Request:
-    {
-        "text": "I have hair fall and feel very tired"
-    }
-    
-    Response:
-    {
-        "extracted_symptoms": ["hair loss", "fatigue"],
-        "confidence": 0.92,
-        "explanation": "..."
-    }
-    """
-    try:
-        data = request.json
-        user_input = data.get('text', '')
-        
-        if not user_input:
-            return jsonify({'error': 'No text provided'}), 400
-        
-        # Get list of known symptoms for reference
-        known_symptoms = get_symptom_suggestions()
-        
-        ai_service = get_ai_service()
-        result = ai_service.extract_symptoms_from_text(user_input, known_symptoms)
-        
-        return jsonify({
-            'status': 'success',
-            'user_input': user_input,
-            'extracted_data': result
-        }), 200
-    
-    except Exception as e:
-        logger.error(f"Error extracting symptoms: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'error': str(e)
-        }), 500
-
-@app.route('/api/chat', methods=['POST'])
-def chat_with_ai():
-    """
-    Chat interface for health-related questions
-    
-    Request:
-    {
-        "message": "Is this serious?",
-        "context": {
-            "disease": "Flu",
-            "symptoms": ["fever", "cough"],
-            "confidence": 62,
-            "risk_level": "Medium"
-        }
-    }
-    
-    Response:
-    {
-        "answer": "Based on your symptoms...",
-        "follow_up_suggestions": ["...", "..."],
-        "disclaimer": "..."
-    }
-    """
-    try:
-        data = request.json
-        message = data.get('message', '')
-        context = data.get('context', None)
-        
-        if not message:
-            logger.warning("❌ Chat: No message provided")
-            return jsonify({
-                'status': 'success',
-                'user_message': '',
-                'ai_response': {
-                    'answer': 'Please ask me a question or tell me about your symptoms.',
-                    'follow_up_suggestions': [],
-                    'disclaimer': '💬 Ask me anything'
-                }
-            }), 200
-        
-        logger.info(f"💬 Chat request: {message[:60]}...")
-        
-        # Use Ollama local LLM for chat responses
-        try:
-            ollama_service = get_ollama_service()
-            print(f"🔍 Flask: Got ollama_service instance")
-            
-            logger.info(f"🔄 Flask: Calling ollama_service.chat_answer()...")
-            print(f"🔄 Flask: Calling ollama_service.chat_answer()...")
-            
-            result = ollama_service.chat_answer(message, context)
-            
-            print(f"🔍 Flask: chat_answer returned: {type(result)}")
-            print(f"🔍 Flask: Result answer: {result.get('answer', '')[:60]}...")
-            
-            logger.info(f"✅ Flask: Got response from Ollama")
-            print(f"✅ Flask: Got response from Ollama")
-            
-            # Store chat in database for history
-            try:
-                chat_log = {
-                    'user_message': message,
-                    'ai_response': result.get('answer', ''),
-                    'context': json.dumps(context or {})
-                }
-                # Could extend SymptomAnalysis db model to store chat
-            except:
-                pass
+            result_text = analysis_response["message"]["content"]
+            print(f"Analysis complete")
             
             return jsonify({
-                'status': 'success',
-                'user_message': message,
-                'ai_response': result
-            }), 200
-        
-        except Exception as ollama_err:
-            logger.error(f"❌ Ollama error: {type(ollama_err).__name__}: {str(ollama_err)}")
+                "valid": True,
+                "result": result_text
+            })
+            
+        except Exception as vision_error:
+            print(f"Vision model error: {vision_error}")
             import traceback
-            logger.error(f"   Traceback: {traceback.format_exc()}")
+            traceback.print_exc()
             
-            # Return graceful fallback response - NEVER 500!
+            # Return error message with setup instructions
             return jsonify({
-                'status': 'success',
-                'user_message': message,
-                'ai_response': {
-                    'answer': 'I am temporarily unavailable. Please try again in a moment. For urgent health concerns, consult a healthcare professional.',
-                    'follow_up_suggestions': ['Try again', 'Check my symptoms'],
-                    'disclaimer': '⚠️ Fallback response - AI service temporarily unavailable'
-                }
-            }), 200
-    
+                "valid": False,
+                "message": "Medicine analyzer requires Ollama vision model. Run: ollama pull llava"
+            }), 500
+        
     except Exception as e:
-        logger.error(f"❌ Fatal chat error: {type(e).__name__}: {str(e)}")
+        print(f"Error in medicine image endpoint: {e}")
         import traceback
-        logger.error(f"   Traceback: {traceback.format_exc()}")
-        
-        # ALWAYS return 200 with valid JSON - NEVER return 500
+        traceback.print_exc()
         return jsonify({
-            'status': 'success',
-            'user_message': data.get('message', '') if isinstance(data, dict) else '',
-            'ai_response': {
-                'answer': 'An error occurred. Please try again or consult a healthcare professional for urgent concerns.',
-                'follow_up_suggestions': [],
-                'disclaimer': '⚠️ Error occurred'
-            }
-        }), 200
+            "valid": False,
+            "message": "Please provide a valid medicine"
+        }), 400
 
-@app.route('/api/ai/advice', methods=['POST'])
-def generate_health_advice():
-    """
-    Generate personalized health advice
-    
-    Request:
-    {
-        "disease": "Flu",
-        "symptoms": ["fever", "cough"],
-        "risk_level": "Medium"
-    }
-    
-    Response:
-    {
-        "advice": "You should...",
-        "risk_level": "Medium",
-        "disclaimer": "..."
-    }
-    """
+
+# =========================
+# Health Check API
+# =========================
+
+# =========================
+# AI Chat API with Memory
+# =========================
+# Store conversation history to avoid repetition
+chat_memory = {
+    'questions': {},  # Store to prevent repetition with timestamps
+    'conversation_history': [],  # For context
+    'response_styles': {},  # Track which response style was used
+    'timestamps': {}  # Track when questions were asked
+}
+
+# Response style variations for Anti-repetition
+RESPONSE_STYLES = [
+    "detailed_analysis",
+    "quick_summary",
+    "step_by_step",
+    "comparison_approach",
+    "risk_benefit",
+    "practical_guide"
+]
+
+@app.route("/api/health", methods=["GET"])
+def health():
+    """Health check endpoint"""
     try:
-        data = request.json
-        disease = data.get('disease', 'Unknown')
-        symptoms = data.get('symptoms', [])
-        risk_level = data.get('risk_level', 'Unknown')
-        
-        ai_service = get_ai_service()
-        result = ai_service.generate_health_advice(disease, symptoms, risk_level)
-        
+        # Try to connect to Ollama to verify it's working
+        ollama.list()
         return jsonify({
-            'status': 'success',
-            'disease': disease,
-            'ai_advice': result
-        }), 200
-    
+            "status": "operational",
+            "message": "AI Health Assistant API is working"
+        })
     except Exception as e:
-        logger.error(f"Error generating advice: {str(e)}")
+        print(f"Health check failed: {e}")
         return jsonify({
-            'status': 'error',
-            'error': str(e)
-        }), 500
+            "status": "unavailable",
+            "message": "AI service is not responding"
+        }), 503
 
-@app.route('/api/ai/medicine-explanation', methods=['POST'])
-def explain_medicine():
+@app.route("/api/chat", methods=["POST"])
+def chat():
     """
-    Generate explanation for medicine detection results
-    
-    Request:
-    {
-        "medicine_name": "Aspirin",
-        "detection_result": {
-            "confidence": 0.92,
-            "packaging_quality": "high",
-            "is_recognized": true
-        }
-    }
-    
-    Response:
-    {
-        "explanation": "The medicine detected...",
-        "confidence": 0.92,
-        "disclaimer": "..."
-    }
+    Enhanced chat endpoint with:
+    - High temperature settings for unique responses (0.95)
+    - Advanced sampling parameters (top_p, repeat_penalty)
+    - Anti-repetition with response style variation
+    - Optimal solution generation
+    - UUID-based response uniqueness
     """
     try:
-        data = request.json
-        medicine_name = data.get('medicine_name', 'Unknown')
-        detection_result = data.get('detection_result', {})
-        
-        ai_service = get_ai_service()
-        result = ai_service.explain_medicine_detection(medicine_name, detection_result)
-        
-        return jsonify({
-            'status': 'success',
-            'medicine_explanation': result
-        }), 200
-    
-    except Exception as e:
-        logger.error(f"Error explaining medicine: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'error': str(e)
-        }), 500
+        data = request.get_json()
+        user_message = data.get("message", "").strip()
+        analysis_context = data.get("context", {})
 
-# ===== ADVANCED SYMPTOM ANALYSIS WITH AI =====
+        if not user_message:
+            return jsonify({"message": "Please enter a message."})
 
-@app.route('/api/advanced/symptom-analysis', methods=['POST'])
-def advanced_symptom_analysis():
-    """
-    Complete advanced analysis combining ML + LLM
-    
-    Request:
-    {
-        "symptoms": "I have fever and cough"
-    }
-    
-    Response includes:
-    1. NLP Mapping
-    2. ML Prediction
-    3. LLM Explanation
-    4. Health Advice
-    """
-    try:
-        data = request.json
-        symptoms_input = data.get('symptoms', '')
+        # Store in conversation history for context
+        chat_memory['conversation_history'].append({
+            "role": "user",
+            "content": user_message
+        })
+
+        # Keep only last 10 messages for context
+        if len(chat_memory['conversation_history']) > 10:
+            chat_memory['conversation_history'] = chat_memory['conversation_history'][-10:]
+
+        # ============= ANTI-REPETITION LOGIC =============
+        message_hash = hashlib.md5(user_message.encode()).hexdigest()
+        previous_responses = chat_memory['questions'].get(message_hash, [])
+        used_styles = chat_memory['response_styles'].get(message_hash, [])
         
-        if not symptoms_input:
-            return jsonify({'error': 'No symptoms provided'}), 400
+        # Select a different response style than before
+        available_styles = [s for s in RESPONSE_STYLES if s not in used_styles]
+        if not available_styles:
+            # Reset if all styles used
+            available_styles = RESPONSE_STYLES
+            used_styles = []
         
-        # Step 1: NLP Extraction (using LLM)
-        ai_service = get_ai_service()
-        known_symptoms = get_symptom_suggestions()
-        extracted = ai_service.extract_symptoms_from_text(symptoms_input, known_symptoms)
+        current_style = random.choice(available_styles)
+        used_styles.append(current_style)
+        chat_memory['response_styles'][message_hash] = used_styles[-3:]  # Keep last 3
         
-        # Get the extracted symptoms
-        extracted_symptoms = extracted.get('extracted_symptoms', [])
-        
-        if not extracted_symptoms:
-            # Fallback to traditional NLP mapping
-            symptom_mappings = map_user_symptoms(symptoms_input)
-            _, _, extracted_symptoms = get_symptom_mapping_summary(symptom_mappings)
-        
-        # Step 2: ML Prediction
-        mapped_symptoms_str = ','.join(extracted_symptoms)
-        prediction_result = predict_disease_from_symptoms(mapped_symptoms_str)
-        
-        # Get primary disease
-        results_list = prediction_result.get('results', [])
-        primary_disease = results_list[0] if results_list else None
-        
-        # Step 3: LLM Explanation (if prediction found)
-        ai_explanation = None
-        health_advice = None
-        
-        if primary_disease:
-            ai_explanation = ai_service.generate_explanation(
-                primary_disease['disease'],
-                extracted_symptoms,
-                primary_disease['confidence']
-            )
+        # Build dynamic prompt based on response style
+        style_prompts = {
+            "detailed_analysis": """Provide an in-depth, comprehensive analysis with multiple perspectives.
+Include detailed reasoning for each recommendation.""",
             
-            health_advice = ai_service.generate_health_advice(
-                primary_disease['disease'],
-                extracted_symptoms,
-                prediction_result.get('risk_level', 'Unknown')
-            )
-        
-        # Prepare comprehensive response
-        response = {
-            'status': 'success',
-            'user_input': symptoms_input,
-            'analysis': {
-                'nlp_extraction': {
-                    'extracted_symptoms': extracted_symptoms,
-                    'confidence': extracted.get('confidence', 0),
-                    'method': 'LLM-based extraction'
-                },
-                'ml_prediction': {
-                    'primary_disease': primary_disease,
-                    'alternatives': results_list[1:] if len(results_list) > 1 else [],
-                    'risk_level': prediction_result.get('risk_level'),
-                    'emergency_alert': prediction_result.get('emergency_alert')
-                },
-                'ai_explanation': ai_explanation,
-                'health_advice': health_advice
-            }
+            "quick_summary": """Provide a concise, bullet-point answer.
+Focus on the most critical information only.""",
+            
+            "step_by_step": """Provide a clear step-by-step action plan.
+Number each step and explain what to do and why.""",
+            
+            "comparison_approach": """Compare different approaches or options.
+Explain pros and cons of each.""",
+            
+            "risk_benefit": """Analyze risks and benefits.
+Highlight potential outcomes of different actions.""",
+            
+            "practical_guide": """Provide a practical, real-world applicable guide.
+Focus on what someone can actually do immediately."""
         }
+
+        variation_instruction = ""
+        if previous_responses:
+            variation_instruction = f"""⚠️ CRITICAL - This question has been asked {len(previous_responses)} time(s) before.
+You MUST give a COMPLETELY DIFFERENT answer this time.
+Use a different structure and explanation approach.
+"""
+            # Add suggestion from previous responses
+            if len(previous_responses) > 1:
+                variation_instruction += f"Have already discussed: basics. Now go deeper/alternative.\n"
+
+        # Build the main prompt with multi-line randomization
+        random_openings = [
+            "Here's what I think:",
+            "Let me break this down:",
+            "Based on the health principles:",
+            "Here's my analysis:",
+            "From a practical standpoint:",
+        ]
+
+        prompt = f"""You are an expert AI Health Assistant. Generate UNIQUE and OPTIMAL health solutions.
+
+User Question: {user_message}
+
+{variation_instruction}
+
+RESPONSE STYLE: {current_style.upper()}
+{style_prompts[current_style]}
+
+MANDATORY RULES:
+1. ALWAYS be unique - never repeat previous explanations
+2. Provide optimal, evidence-based or best-practice advice
+3. Be specific and actionable
+4. Use clear, simple language
+5. Include why the solution works
+6. Mention when to seek professional help
+7. Avoid generic AI phrases like "I understand" or "As an AI"
+
+{random.choice(random_openings)}
+"""
+
+        # Add context if available
+        if analysis_context:
+            prompt += f"\nContext: {analysis_context}\n"
+
+        # ============= ENHANCED LLM PARAMETERS =============
+        # Build messages with system prompt
+        messages_with_context = [
+            {"role": "system", "content": """You are a world-class health expert AI assistant.
+Your job:
+1. Provide unique, creative, optimal solutions
+2. Never repeat the same answer twice
+3. Vary your response structure and examples
+4. Be practical and specific
+5. Always maintain medical safety
+
+Key: Create DIFFERENT responses even for identical questions."""},
+            *chat_memory['conversation_history'][-4:]
+        ]
+
+        # Call Ollama with ENHANCED PARAMETERS for more variation
+        print(f"\n🔄 Calling Ollama with enhanced parameters...")
+        print(f"   Temperature: 0.95 (HIGH - more variation)")
+        print(f"   Top-P: 0.95 (nucleus sampling)")
+        print(f"   Repeat Penalty: 1.3 (prevents repetition)")
+        print(f"   Response Style: {current_style}")
         
-        return jsonify(response), 200
-    
-    except Exception as e:
-        logger.error(f"Error in advanced analysis: {str(e)}")
+        response = ollama.chat(
+            model="llama3",
+            messages=messages_with_context,
+            stream=False,
+            options={
+                "temperature": 0.95,  # Higher = more varied/creative responses
+                "top_p": 0.95,  # Nucleus sampling - better quality variety
+                "repeat_penalty": 1.3  # Penalize repetitive text
+            }
+        )
+
+        bot_response = response["message"]["content"]
+
+        # ============= STORE RESPONSE METADATA =============
+        # Store this answer with metadata
+        if message_hash not in chat_memory['questions']:
+            chat_memory['questions'][message_hash] = []
+        
+        chat_memory['questions'][message_hash].append({
+            "response": bot_response[:150],  # Store more context
+            "style": current_style,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        # Keep only last 5 responses per question to save memory
+        if len(chat_memory['questions'][message_hash]) > 5:
+            chat_memory['questions'][message_hash] = chat_memory['questions'][message_hash][-5:]
+
+        # Add bot response to history
+        chat_memory['conversation_history'].append({
+            "role": "assistant",
+            "content": bot_response
+        })
+
         return jsonify({
-            'status': 'error',
-            'error': str(e)
+            "message": bot_response,
+            "ai_response": {
+                "answer": bot_response,
+                "style": current_style,
+                "variations_count": len(previous_responses)
+            },
+            "status": "success"
+        })
+
+    except Exception as e:
+        print(f"❌ CHAT ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "message": "Sorry, I'm having trouble right now. Please try again.",
+            "error": str(e),
+            "status": "error"
         }), 500
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+@app.route("/api/chat/clear", methods=["POST"])
+def clear_chat():
+    """Clear chat history and memory"""
+    global chat_memory
+    chat_memory = {
+        'questions': {},
+        'conversation_history': [],
+        'response_styles': {},
+        'timestamps': {}
+    }
+    return jsonify({"message": "Chat history cleared", "status": "success"})
+
+@app.route("/api/chat/stats", methods=["GET"])
+def chat_stats():
+    """Get chat statistics and variation info"""
+    total_questions = len(chat_memory['questions'])
+    total_responses = sum(len(v) if isinstance(v, list) else 1 for v in chat_memory['questions'].values())
+    
+    return jsonify({
+        "total_unique_questions": total_questions,
+        "total_responses_generated": total_responses,
+        "avg_responses_per_question": total_responses / max(total_questions, 1),
+        "response_styles_used": len(RESPONSE_STYLES),
+        "status": "operational"
+    })
+
+
+# =========================
+# Run Server
+# =========================
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5000)

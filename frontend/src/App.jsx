@@ -4,11 +4,14 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import AnimatedGradientBackground from './components/AnimatedGradientBackground';
 import ChatWidget from './components/ChatWidget';
 import ScrollToTop from './components/ScrollToTop';
+import SymptomAnalyzer from './components/SymptomAnalyzer';
+import HealthHistory from './components/HealthHistory';
 
 gsap.registerPlugin(ScrollTrigger);
 
 // Global Language Context and Dictionary
 export const LanguageContext = createContext();
+export const ThemeContext = createContext();
 
 const translations = {
   en: {
@@ -141,7 +144,19 @@ export default function App() {
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t }}>
-    <div ref={containerRef} className={`min-h-screen overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
+      <ThemeContext.Provider value={{ 
+        primaryColor: isDarkMode ? '#06b6d4' : '#0891b2',
+        successColor: isDarkMode ? '#22c55e' : '#16a34a',
+        warningColor: isDarkMode ? '#f59e0b' : '#d97706',
+        dangerColor: isDarkMode ? '#ef4444' : '#dc2626',
+        isDarkMode,
+        bgPrimary: isDarkMode ? '#020617' : '#F8F3E1',
+        bgSecondary: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(248,243,225,0.9)',
+        textPrimary: isDarkMode ? '#e2e8f0' : '#000000',
+        textSecondary: isDarkMode ? '#cbd5f5' : '#1a1a1a',
+        textMuted: isDarkMode ? '#aaa' : '#333333'
+      }}>
+        <div ref={containerRef} className={`min-h-screen overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-slate-950 text-white' : 'text-gray-900'}`} style={{backgroundColor: isDarkMode ? undefined : '#F8F3E1'}}>
       {/* Scroll to top on page change */}
       <ScrollToTop currentPage={currentPage} />
       <AnimatedGradientBackground />
@@ -203,8 +218,8 @@ export default function App() {
                 onClick={() => setCurrentPage(item)}
                 className={`relative px-4 py-2 transition-all capitalize ${
                   currentPage === item
-                    ? 'text-cyan-400 font-semibold'
-                    : 'text-gray-300 hover:text-white'
+                    ? isDarkMode ? 'text-cyan-400 font-semibold' : 'text-cyan-600 font-semibold'
+                    : isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-black'
                 }`}
               >
                 {t('nav', item)}
@@ -239,15 +254,16 @@ export default function App() {
       {/* Main Content */}
       <main className="relative z-10 pt-24 min-h-[calc(100vh-96px)] overflow-y-auto">
         {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} />}
-        {currentPage === 'symptom' && <SymptomPage />}
+        {currentPage === 'symptom' && <SymptomAnalyzer />}
         {currentPage === 'medicine' && <MedicinePage />}
         {currentPage === 'chat' && <ChatPage />}
-        {currentPage === 'history' && <HistoryPage />}
+        {currentPage === 'history' && <HealthHistory />}
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} />}
         {currentPage === 'signup' && <SignupPage setCurrentPage={setCurrentPage} />}
         {currentPage === 'about' && <AboutPage setCurrentPage={setCurrentPage} />}
       </main>
-    </div>
+        </div>
+      </ThemeContext.Provider>
     </LanguageContext.Provider>
   );
 }
@@ -614,7 +630,7 @@ function SymptomPage() {
     setResult(null);
 
     try {
-      const response = await fetch('http://localhost:5000/api/symptoms', {
+      const response = await fetch('http://127.0.0.1:5000/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symptoms: symptoms })
@@ -1132,6 +1148,7 @@ function SignupPage({ setCurrentPage }) {
 
 function MedicinePage() {
   const { t } = useContext(LanguageContext);
+  const { isDarkMode, textPrimary, textMuted, primaryColor, warningColor } = useContext(ThemeContext) || {};
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -1202,16 +1219,23 @@ function MedicinePage() {
     formData.append('image', imageFile);
 
     try {
-      const response = await fetch('http://localhost:5000/api/verify-medicine', {
+      const response = await fetch('http://127.0.0.1:5000/analyze-medicine-image', {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Verification failed');
+        throw new Error('Failed to analyze image');
       }
 
       const data = await response.json();
+      
+      if (data.valid === false) {
+        setError(data.message || 'Image validation failed');
+        setLoading(false);
+        return;
+      }
+
       setResult(data);
 
       // Animate result
@@ -1220,7 +1244,7 @@ function MedicinePage() {
         { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: 'back.out(1.5)' }
       );
     } catch (err) {
-      setError(err.message || 'Failed to verify medicine');
+      setError(err.message || 'Failed to analyze medicine image');
     } finally {
       setLoading(false);
     }
@@ -1239,7 +1263,7 @@ function MedicinePage() {
       <div className="space-y-8">
         <div ref={titleRef} className="space-y-3">
           <h2 className="text-5xl font-black gradient-text">🔬 {t('medicine', 'title')}</h2>
-          <p className="text-gray-400 text-lg">{t('medicine', 'subtitle')}</p>
+          <p style={{color: textMuted}} className="text-lg">{t('medicine', 'subtitle')}</p>
         </div>
 
         {!result ? (
@@ -1264,8 +1288,8 @@ function MedicinePage() {
               <div className="text-6xl group-hover:scale-125 group-hover:rotate-12 transition-transform duration-300 inline-block">💊</div>
               <div>
                 <h3 className="text-xl font-bold mb-2">{t('medicine', 'upload')}</h3>
-                <p className="text-gray-400">{t('medicine', 'format')}</p>
-                <p className="text-sm text-gray-500 mt-2">{t('medicine', 'drag')}</p>
+                <p style={{color: textMuted}} className="text-lg">{t('medicine', 'format')}</p>
+                <p className="text-sm mt-2" style={{color: textMuted}}>{t('medicine', 'drag')}</p>
               </div>
               <input
                 id="medicine-upload"
@@ -1291,8 +1315,8 @@ function MedicinePage() {
                   </div>
                   <div className="mt-4 flex items-center justify-between">
                     <div>
-                      <p className="text-gray-400 text-sm">File selected</p>
-                      <p className="text-white font-semibold">{imageFile.name}</p>
+                      <p style={{color: textMuted}} className="text-sm">File selected</p>
+                      <p style={{color: textPrimary}} className="font-semibold">{imageFile.name}</p>
                     </div>
                     <button
                       onClick={resetUpload}
@@ -1318,243 +1342,40 @@ function MedicinePage() {
                 <span className="text-3xl">⚠️</span>
                 <div>
                   <p className="text-red-400 font-bold">Error</p>
-                  <p className="text-gray-400 text-sm">{error}</p>
+                  <p style={{color: textMuted}} className="text-sm">{error}</p>
                 </div>
               </div>
             )}
           </>
         ) : (
           <div ref={resultRef} className="space-y-6">
-            {/* Main Result Card */}
-            <div className={`glass p-8 rounded-2xl border-l-8 ${result.is_authentic ? 'border-green-500' : 'border-red-500'}`}>
+            {/* Medicine Analysis Result */}
+            <div className="glass p-8 rounded-2xl border-l-8" style={{borderLeftColor: primaryColor}}>
               <div className="flex items-start justify-between mb-6">
                 <div>
-                  <p className="text-gray-400 text-sm mb-2">VERIFICATION RESULT</p>
-                  <h3 className={`text-4xl font-black ${result.is_authentic ? 'text-green-400' : 'text-red-400'}`}>
-                    {result.is_authentic ? '✓ AUTHENTIC' : '✗ COUNTERFEIT DETECTED'}
-                  </h3>
+                  <p style={{color: textMuted}} className="text-sm mb-2">MEDICINE ANALYSIS</p>
+                  <h3 className="text-3xl font-black" style={{color: primaryColor}}>✓ Valid Medicine</h3>
                 </div>
-                <div className={`text-6xl ${result.is_authentic ? 'animate-bounce' : 'animate-pulse'}`}>
-                  {result.is_authentic ? '🛡️' : '⚠️'}
-                </div>
+                <div className="text-5xl animate-bounce">💊</div>
               </div>
 
-              {/* Confidence Score */}
-              <div className="mb-6">
-                <p className="text-gray-400 text-sm mb-2">AI CONFIDENCE LEVEL</p>
-                <div className="relative h-4 bg-white/5 rounded-full overflow-hidden border border-white/10">
-                  <div 
-                    className={`h-full rounded-full transition-all duration-1000 ${result.is_authentic ? 'bg-gradient-to-r from-green-500 to-cyan-500' : 'bg-gradient-to-r from-red-500 to-orange-500'}`}
-                    style={{ width: `${(result.final_confidence || 0) * 100}%` }}
-                  ></div>
-                </div>
-                <p className={`mt-2 font-bold text-lg ${result.is_authentic ? 'text-green-400' : 'text-red-400'}`}>
-                  {Math.round((result.final_confidence || 0) * 100)}% Confidence
-                </p>
+              {/* AI Analysis Result */}
+              <div className="mb-6 glass p-4 rounded-lg" style={{borderColor: `${primaryColor}4d`, backgroundColor: `${primaryColor}0d`}}>
+                <p style={{color: textMuted}} className="text-sm mb-3">AI ANALYSIS:</p>
+                <pre style={{color: textPrimary}} className="text-sm whitespace-pre-wrap leading-relaxed">
+                  {result.result}
+                </pre>
               </div>
 
-              {/* Recommendation */}
-              <p className={`text-sm font-semibold p-4 rounded-lg ${result.is_authentic ? 'bg-green-500/10 text-green-300' : 'bg-red-500/10 text-red-300'}`}>
-                {result.recommendation}
+              {/* Important Notice */}
+              <p className="text-sm p-3 rounded-lg" style={{backgroundColor: `${warningColor}10`, color: isDarkMode ? '#fbbf24' : '#b45309', borderColor: `${warningColor}4d`, borderWidth: '1px'}}>
+                ⚠️ This analysis is for informational purposes. Always consult a healthcare professional.
               </p>
             </div>
 
-            {/* OCR Results (if available) */}
-            {result.ocr_result && (
-              <div className="glass p-6 rounded-2xl border border-white/10">
-                <h4 className="text-lg font-bold mb-4">🔍 OCR Data Extraction</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="glass p-4 rounded-lg border border-white/5">
-                    <p className="text-gray-400 text-sm">Medicine Name</p>
-                    <p className="text-white font-semibold mt-1">
-                      {result.ocr_result.medicine_name || 'Not detected'}
-                    </p>
-                  </div>
-                  <div className="glass p-4 rounded-lg border border-white/5">
-                    <p className="text-gray-400 text-sm">Batch Number</p>
-                    <p className="text-white font-semibold mt-1">
-                      {result.ocr_result.batch_number || 'Not found'}
-                    </p>
-                  </div>
-                  <div className="glass p-4 rounded-lg border border-white/5">
-                    <p className="text-gray-400 text-sm">Database Match</p>
-                    <p className={`mt-1 font-semibold ${result.ocr_result.database_match ? 'text-green-400' : 'text-orange-400'}`}>
-                      {result.ocr_result.database_match ? '✓ Found' : '⚠️ Not Found'}
-                    </p>
-                  </div>
-                  <div className="glass p-4 rounded-lg border border-white/5">
-                    <p className="text-gray-400 text-sm">OCR Confidence</p>
-                    <p className="text-white font-semibold mt-1">
-                      {Math.round((result.ocr_result.confidence || 0) * 100)}%
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Image Analysis */}
-            {result.image_analysis && (
-              <div className="glass p-6 rounded-2xl border border-white/10">
-                <h4 className="text-lg font-bold mb-4">🎨 Image Quality Analysis</h4>
-                <div className="space-y-4">
-                  {/* Hologram Detection */}
-                  <div className="flex items-center justify-between p-4 glass rounded-lg border border-white/5">
-                    <div>
-                      <p className="font-medium">Hologram Detection</p>
-                      <p className="text-xs text-gray-400">Security feature verification</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex justify-end mb-1">
-                        <span className={result.image_analysis.hologram_detected ? 'text-green-400' : 'text-gray-400'}>
-                          {result.image_analysis.hologram_detected ? '✓' : '✗'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-400">{Math.round(result.image_analysis.hologram_confidence * 100)}%</p>
-                    </div>
-                  </div>
-
-                  {/* Barcode Validation */}
-                  <div className="flex items-center justify-between p-4 glass rounded-lg border border-white/5">
-                    <div>
-                      <p className="font-medium">Barcode Quality</p>
-                      <p className="text-xs text-gray-400">Clear barcode structure</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex justify-end mb-1">
-                        <span className={result.image_analysis.barcode_valid ? 'text-green-400' : 'text-gray-400'}>
-                          {result.image_analysis.barcode_valid ? '✓' : '✗'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-400">{Math.round(result.image_analysis.barcode_confidence * 100)}%</p>
-                    </div>
-                  </div>
-
-                  {/* Color Consistency */}
-                  <div className="flex items-center justify-between p-4 glass rounded-lg border border-white/5">
-                    <div>
-                      <p className="font-medium">Color Consistency</p>
-                      <p className="text-xs text-gray-400">Uniform color across packaging</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex justify-end mb-1">
-                        <span className={result.image_analysis.color_consistency ? 'text-green-400' : 'text-gray-400'}>
-                          {result.image_analysis.color_consistency ? '✓' : '✗'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-400">{Math.round(result.image_analysis.color_consistency_score * 100)}%</p>
-                    </div>
-                  </div>
-
-                  {/* Text Clarity */}
-                  <div className="flex items-center justify-between p-4 glass rounded-lg border border-white/5">
-                    <div>
-                      <p className="font-medium">Text Clarity</p>
-                      <p className="text-xs text-gray-400">Sharp and legible text</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex justify-end mb-1">
-                        <span className={result.image_analysis.text_clarity ? 'text-green-400' : 'text-gray-400'}>
-                          {result.image_analysis.text_clarity ? '✓' : '✗'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-400">{Math.round(result.image_analysis.text_clarity_score * 100)}%</p>
-                    </div>
-                  </div>
-
-                  {/* Overall Quality */}
-                  <div className="p-4 glass rounded-lg border border-cyan-500/30 bg-cyan-500/5">
-                    <p className="font-medium text-cyan-400">Overall Packaging Quality</p>
-                    <p className="text-xl font-bold mt-2 text-white">{result.image_analysis.overall_packaging_quality}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Explainability: Detailed Reasoning */}
-            {result.reasoning && result.reasoning.length > 0 && (
-              <div className="glass p-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/5">
-                <h4 className="text-lg font-bold mb-4 text-yellow-400">🔍 Detailed Analysis Breakdown</h4>
-                <div className="space-y-4">
-                  {result.reasoning.map((item, idx) => (
-                    <div key={idx} className={`p-4 glass rounded-lg border-l-4 ${
-                      item.status === 'PASS' ? 'border-green-500 bg-green-500/5' :
-                      item.status === 'WARNING' ? 'border-yellow-500 bg-yellow-500/5' :
-                      'border-red-500 bg-red-500/5'
-                    }`}>
-                      <div className="flex items-start justify-between mb-2">
-                        <p className="font-bold">{item.layer}</p>
-                        <span className={`px-2 py-1 text-xs font-bold rounded ${
-                          item.status === 'PASS' ? 'bg-green-500/20 text-green-300' :
-                          item.status === 'WARNING' ? 'bg-yellow-500/20 text-yellow-300' :
-                          'bg-red-500/20 text-red-300'
-                        }`}>
-                          {item.status}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-300 mb-2">{item.detail}</p>
-                      <div className="flex items-center justify-between">
-                        <div className="w-full mr-4">
-                          <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full ${
-                                item.status === 'PASS' ? 'bg-green-500' :
-                                item.status === 'WARNING' ? 'bg-yellow-500' :
-                                'bg-red-500'
-                              }`}
-                              style={{ width: `${item.score * 100}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                        <p className="text-xs font-bold text-gray-300">{Math.round(item.score * 100)}%</p>
-                      </div>
-                      {item.overall_quality && (
-                        <p className="text-xs text-gray-400 mt-2">Quality: {item.overall_quality}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Overall Assessment */}
-                <div className="mt-6 p-4 glass rounded-lg border border-cyan-500/30">
-                  <p className="text-sm text-gray-400 mb-2">Overall Assessment</p>
-                  <p className="text-lg font-bold text-cyan-400">
-                    {result.is_authentic ? '✅ This medicine appears AUTHENTIC' : '⚠️ This medicine appears SUSPICIOUS/COUNTERFEIT'}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Decision Logic */}
-            {result.decision_logic && (
-              <div className="glass p-6 rounded-2xl border border-white/10">
-                <h4 className="text-lg font-bold mb-4">⚙️ Decision Logic Breakdown</h4>
-                <div className="space-y-3">
-                  {result.decision_logic.component_scores && result.decision_logic.component_scores.map((component, idx) => (
-                    <div key={idx} className="glass p-4 rounded-lg border border-white/5">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="font-medium">{component.component}</p>
-                        <p className="text-blue-400 font-bold">{Math.round(component.score * 100)}%</p>
-                      </div>
-                      <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
-                          style={{ width: `${component.score * 100}%` }}
-                        ></div>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-2">Weight: {Math.round(component.weight * 100)}%</p>
-                    </div>
-                  ))}
-                  <div className="p-4 glass rounded-lg border border-purple-500/30 bg-purple-500/5">
-                    <p className="text-gray-400 text-sm">Threshold for Authenticity</p>
-                    <p className="text-2xl font-bold text-purple-400 mt-1">≥ {Math.round(result.decision_logic.threshold * 100)}%</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Image Preview */}
             <div className="glass p-6 rounded-2xl border border-white/10">
-              <p className="text-gray-400 text-sm mb-4">SCANNED IMAGE</p>
+              <p style={{color: textMuted}} className="text-sm mb-4">SCANNED IMAGE</p>
               <div className="relative overflow-hidden rounded-xl">
                 <img 
                   src={imagePreview} 
@@ -1570,12 +1391,12 @@ function MedicinePage() {
                 onClick={resetUpload}
                 className="flex-1 px-8 py-4 bg-white/5 hover:bg-white/10 rounded-xl font-bold text-white transition-all"
               >
-                📸 Verify Another
+                📸 Analyze Another
               </button>
               <button 
-                className="flex-1 px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl font-bold text-white shadow-lg shadow-purple-500/50 hover:shadow-purple-500/80 transition-all"
+                className="flex-1 px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl font-bold text-white shadow-lg shadow-cyan-500/50 hover:shadow-cyan-500/80 transition-all"
               >
-                💾 Save Report
+                💾 Save Analysis
               </button>
             </div>
           </div>
@@ -1606,12 +1427,14 @@ function ChatPage() {
 
   useEffect(() => {
     // Check AI service status
-    fetch('/api/ai/status')
+    fetch('http://127.0.0.1:5000/api/health')
       .then(res => res.json())
       .then(data => {
+        console.log('Health check:', data);
         setAiStatus(data.status === 'operational' ? 'operational' : 'unavailable');
       })
       .catch(err => {
+        console.error('Health check error:', err);
         setAiStatus('unavailable');
       });
 
@@ -1644,7 +1467,7 @@ function ChatPage() {
 
     try {
       // Call backend chat API
-      const response = await fetch('http://localhost:5000/api/chat', {
+      const response = await fetch('http://127.0.0.1:5000/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1653,10 +1476,19 @@ function ChatPage() {
         })
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
+      console.log('Chat response:', data);
+      
+      // Handle multiple possible response formats
+      const botReply = data.ai_response?.answer || data.message || data.reply || 'I\'m having trouble responding right now.';
+      
       const botMessage = {
         role: 'bot',
-        text: data.ai_response?.answer || data.message || 'I\'m having trouble responding right now.'
+        text: botReply
       };
       setMessages(prev => [...prev, botMessage]);
 
@@ -1793,8 +1625,8 @@ function HistoryPage() {
   const fetchHistory = async () => {
     try {
       const [symp, med] = await Promise.all([
-        fetch('http://localhost:5000/api/symptoms/history').then(r => r.json()),
-        fetch('http://localhost:5000/api/medicine/history').then(r => r.json())
+        fetch('http://127.0.0.1:5000/api/symptoms/history').then(r => r.json()),
+        fetch('http://127.0.0.1:5000/api/medicine/history').then(r => r.json())
       ]);
       setSymptomHistory(symp.data || []);
       setMedicineHistory(med.data || []);
